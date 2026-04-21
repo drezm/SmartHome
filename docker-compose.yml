@@ -1,0 +1,126 @@
+services:
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "5173:4173"
+    depends_on:
+      - bff
+
+  bff:
+    build:
+      context: .
+      dockerfile: apps/bff/Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: production
+      BFF_PORT: 3000
+      JWT_SECRET: ${JWT_SECRET:-dev-smart-flow-secret}
+      HUB_ID: ${HUB_ID:-home-1}
+      DB_PATH: /data/smart-home.sqlite
+      DATABASE_URL: ${DATABASE_URL:-}
+      DATABASE_SSL: ${DATABASE_SSL:-true}
+      COLLECTOR_GRPC_URL: collector:9090
+      CORS_ORIGIN: http://localhost:5173
+    volumes:
+      - bff-data:/data
+    depends_on:
+      kafka-init-topics:
+        condition: service_completed_successfully
+      collector:
+        condition: service_started
+
+  kafka:
+    image: confluentinc/confluent-local:7.4.3
+    hostname: kafka
+    container_name: smart-flow-kafka
+    ports:
+      - "9092:9092"
+      - "9101:9101"
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:29092,PLAINTEXT_HOST://localhost:9092"
+      KAFKA_JMX_PORT: 9101
+      KAFKA_JMX_HOSTNAME: localhost
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:29093"
+      KAFKA_LISTENERS: "PLAINTEXT://kafka:29092,CONTROLLER://kafka:29093,PLAINTEXT_HOST://0.0.0.0:9092"
+      CLUSTER_ID: "K0EA9p0yEe6MkAAAAkKsEg"
+
+  kafka-init-topics:
+    image: confluentinc/confluent-local:7.4.3
+    container_name: smart-flow-kafka-init
+    depends_on:
+      - kafka
+    command: >
+      bash -c "
+      kafka-topics --create --topic telemetry.sensors.v1 --partitions 1 --replication-factor 1 --if-not-exists --bootstrap-server kafka:29092 &&
+      kafka-topics --create --topic telemetry.snapshots.v1 --partitions 1 --replication-factor 1 --if-not-exists --bootstrap-server kafka:29092 &&
+      kafka-topics --create --topic telemetry.hubs.v1 --partitions 1 --replication-factor 1 --if-not-exists --bootstrap-server kafka:29092"
+    init: true
+
+  analyzer-db:
+    image: postgres:16.1
+    container_name: smart-flow-analyzer-db
+    ports:
+      - "5433:5432"
+    environment:
+      POSTGRES_DB: analyze
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+    volumes:
+      - analyzer-db-data:/var/lib/postgresql/data
+
+  discovery-server:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: discovery-server
+    ports:
+      - "8761:8761"
+    environment:
+      EUREKA_INSTANCE_HOSTNAME: discovery-server
+
+  config-server:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: config-server
+    ports:
+      - "8888:8888"
+    environment:
+      SERVER_PORT: 8888
+      EUREKA_INSTANCE_HOSTNAME: config-server
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://discovery-server:8761/eureka/"
+    depends_on:
+      - discovery-server
+
+  collector:
+    build:
+      context: .
+      dockerfile: docker/backend.Dockerfile
+      target: collector
+    ports:
+      - "9090:9090"
+      - "8081:8081"
+    environment:
+      SERVER_PORT: 8081
+      SPRING_CONFIG_IMPORT: "optional:configserver:"
+      SPRING_GRPC_SERVER_PORT: 9090
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      SPRING_KAFKA_TOPICS_HUB_TOPIC_NAME: telemetry.hubs.v1
+      SPRING_KAFKA_TOPICS_SENSOR_TOPIC_NAME: telemetry.sensors.v1
+      SPRING_KAFKA_TOPICS_SNAPSHOTS_TOPIC_NAME: telemetry.snapshots.v1
+      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://discovery-server:8761/eureka/"
+    depends_on:
+      kafka-init-topics:
+        condition: service_completed_successfully
+      config-server:
+        condition: service_started
+
+volumes:
+  bff-data:
+  analyzer-db-data:

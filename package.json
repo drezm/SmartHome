@@ -1,0 +1,21 @@
+{
+  "name": "smart-flow-home",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Smart Flow Home frontend and BFF for the telemetry smart home backend.",
+  "workspaces": [
+    "apps/web",
+    "apps/bff"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev -w @smart-home/bff\" \"npm run dev -w @smart-home/web\"",
+    "dev:web": "npm run dev -w @smart-home/web",
+    "dev:bff": "npm run dev -w @smart-home/bff",
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspaces --if-present",
+    "typecheck": "npm run typecheck --workspaces --if-present"
+  },
+  "devDependencies": {
+    "concurrently": "^9.1.2"
+  }
+}
