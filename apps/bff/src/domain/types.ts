@@ -88,6 +88,44 @@ export interface NotificationItem {
   createdAt: string;
 }
 
+export interface Subscription {
+  plan: "free" | "premium";
+  status: "free" | "active" | "expired" | "cancelled";
+  startedAt: string | null;
+  expiresAt: string | null;
+  cancelledAt: string | null;
+  paymentMockLast4: string | null;
+  paymentEmail: string | null;
+  isPremium: boolean;
+  daysLeft: number | null;
+}
+
+export interface TelegramIntegration {
+  connected: boolean;
+  chatId: string | null;
+  hasBotToken: boolean;
+  updatedAt: string | null;
+}
+
+export interface ReportSummary {
+  range: "7d" | "30d";
+  generatedAt: string;
+  temperatureSeries: Array<{ time: string; value: number }>;
+  humiditySeries: Array<{ time: string; value: number }>;
+  deviceActivity: Array<{ name: string; enabled: boolean; online: boolean; events: number }>;
+  scenarioActivity: Array<{ title: string; active: boolean }>;
+  notificationStats: Array<{ type: string; count: number }>;
+  summary: string;
+}
+
+export interface NewsItem {
+  id: string;
+  title: string;
+  source: string;
+  url: string;
+  publishedAt: string | null;
+}
+
 export interface DashboardSummary {
   stats: {
     temperature: number | null;
@@ -100,6 +138,7 @@ export interface DashboardSummary {
   temperatureSeries: Array<{ time: string; value: number }>;
   activitySeries: Array<{ day: string; events: number }>;
   currentScenario: Scenario | null;
+  subscription: Subscription;
   backendStatus: {
     collectorUrl: string;
     mode: "connected" | "degraded" | "local";

@@ -1,7 +1,6 @@
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import type { User, UserWithPassword } from "../domain/types.js";
-import { seedHomeForUser } from "../db/database.js";
 
 type UserRow = {
   id: string;
@@ -28,14 +27,9 @@ export class UserRepository {
     const userId = randomUUID();
     const createdAt = new Date().toISOString();
 
-    const createUser = this.db.transaction(() => {
-      this.db
-        .prepare("INSERT INTO users (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)")
-        .run(userId, input.name, input.email.toLowerCase(), input.passwordHash, createdAt);
-      seedHomeForUser(this.db, userId);
-    });
-
-    createUser();
+    this.db
+      .prepare("INSERT INTO users (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)")
+      .run(userId, input.name, input.email.toLowerCase(), input.passwordHash, createdAt);
 
     return {
       id: userId,
@@ -43,6 +37,36 @@ export class UserRepository {
       email: input.email.toLowerCase(),
       createdAt
     };
+  }
+
+  updatePassword(userId: string, passwordHash: string): void {
+    this.db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, userId);
+  }
+
+  createPasswordReset(input: { userId: string; tokenHash: string; expiresAt: string }): void {
+    const now = new Date().toISOString();
+    this.db
+      .prepare("INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, consumed_at, created_at) VALUES (?, ?, ?, ?, NULL, ?)")
+      .run(randomUUID(), input.userId, input.tokenHash, input.expiresAt, now);
+  }
+
+  findPasswordReset(tokenHash: string): { id: string; userId: string; expiresAt: string; consumedAt: string | null } | null {
+    const row = this.db
+      .prepare("SELECT id, user_id, expires_at, consumed_at FROM password_reset_tokens WHERE token_hash = ?")
+      .get(tokenHash) as { id: string; user_id: string; expires_at: string; consumed_at: string | null } | undefined;
+
+    return row
+      ? {
+          id: row.id,
+          userId: row.user_id,
+          expiresAt: row.expires_at,
+          consumedAt: row.consumed_at
+        }
+      : null;
+  }
+
+  consumePasswordReset(id: string): void {
+    this.db.prepare("UPDATE password_reset_tokens SET consumed_at = ? WHERE id = ?").run(new Date().toISOString(), id);
   }
 }
 

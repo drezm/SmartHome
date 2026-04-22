@@ -22,6 +22,18 @@ services:
       DB_PATH: /data/smart-home.sqlite
       DATABASE_URL: ${DATABASE_URL:-}
       DATABASE_SSL: ${DATABASE_SSL:-true}
+      SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-dev-smart-flow-encryption-key}
+      EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
+      RESEND_API_KEY: ${RESEND_API_KEY:-}
+      EMAIL_FROM: "${EMAIL_FROM:-SmartHome <onboarding@resend.dev>}"
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-}
+      SMTP_USER: ${SMTP_USER:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: "${SMTP_FROM:-}"
+      APP_PUBLIC_URL: "${APP_PUBLIC_URL:-http://localhost:5173}"
+      NEWS_RSS_FEEDS: "${NEWS_RSS_FEEDS:-https://www.tadviser.ru/index.php/RSS,https://habr.com/ru/rss/articles/?fl=ru}"
       COLLECTOR_GRPC_URL: collector:9090
       CORS_ORIGIN: http://localhost:5173
     volumes:

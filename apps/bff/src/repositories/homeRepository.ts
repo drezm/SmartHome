@@ -10,6 +10,8 @@ import type {
   ScenarioCommand,
   ScenarioMetric,
   ScenarioOperator,
+  Subscription,
+  TelegramIntegration,
   TelemetryPoint
 } from "../domain/types.js";
 
@@ -55,6 +57,22 @@ type TelemetryRow = {
   value: number;
   unit: string | null;
   created_at: string;
+};
+
+type SubscriptionRow = {
+  plan: Subscription["plan"];
+  status: Subscription["status"];
+  started_at: string | null;
+  expires_at: string | null;
+  cancelled_at: string | null;
+  payment_mock_last4: string | null;
+  payment_email: string | null;
+};
+
+type TelegramRow = {
+  bot_token_encrypted: string;
+  chat_id: string;
+  updated_at: string;
 };
 
 export class HomeRepository {
@@ -187,15 +205,35 @@ export class HomeRepository {
     return this.getScenario(userId, id)!;
   }
 
-  updateScenario(userId: string, id: string, input: Partial<Pick<Scenario, "title" | "active">>): Scenario | null {
+  updateScenario(
+    userId: string,
+    id: string,
+    input: Partial<Pick<Scenario, "title" | "metric" | "operator" | "value" | "unit" | "targetDeviceId" | "targetDeviceName" | "command" | "active">>
+  ): Scenario | null {
     const current = this.getScenario(userId, id);
     if (!current) {
       return null;
     }
 
     this.db
-      .prepare("UPDATE scenarios SET title = ?, active = ? WHERE user_id = ? AND id = ?")
-      .run(input.title ?? current.title, input.active ?? current.active ? 1 : 0, userId, id);
+      .prepare(
+        `UPDATE scenarios
+         SET title = ?, metric = ?, operator = ?, value = ?, unit = ?, target_device_id = ?, target_device_name = ?, command = ?, active = ?
+         WHERE user_id = ? AND id = ?`
+      )
+      .run(
+        input.title ?? current.title,
+        input.metric ?? current.metric,
+        input.operator ?? current.operator,
+        input.value ?? current.value,
+        input.unit === undefined ? current.unit : input.unit,
+        input.targetDeviceId === undefined ? current.targetDeviceId : input.targetDeviceId,
+        input.targetDeviceName ?? current.targetDeviceName,
+        input.command ?? current.command,
+        (input.active ?? current.active) ? 1 : 0,
+        userId,
+        id
+      );
 
     return this.getScenario(userId, id);
   }
@@ -288,6 +326,76 @@ export class HomeRepository {
 
     return this.listDevices(userId);
   }
+
+  getSubscription(userId: string): Subscription {
+    const row = this.db.prepare("SELECT * FROM subscriptions WHERE user_id = ?").get(userId) as SubscriptionRow | undefined;
+    return mapSubscription(row);
+  }
+
+  upsertSubscription(
+    userId: string,
+    input: {
+      plan: Subscription["plan"];
+      status: Subscription["status"];
+      startedAt: string | null;
+      expiresAt: string | null;
+      cancelledAt: string | null;
+      paymentMockLast4: string | null;
+      paymentEmail: string | null;
+    }
+  ): Subscription {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT INTO subscriptions
+        (user_id, plan, status, started_at, expires_at, cancelled_at, payment_mock_last4, payment_email, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(user_id) DO UPDATE SET
+          plan = excluded.plan,
+          status = excluded.status,
+          started_at = excluded.started_at,
+          expires_at = excluded.expires_at,
+          cancelled_at = excluded.cancelled_at,
+          payment_mock_last4 = excluded.payment_mock_last4,
+          payment_email = excluded.payment_email,
+          updated_at = excluded.updated_at`
+      )
+      .run(userId, input.plan, input.status, input.startedAt, input.expiresAt, input.cancelledAt, input.paymentMockLast4, input.paymentEmail, now, now);
+
+    return this.getSubscription(userId);
+  }
+
+  getTelegramIntegration(userId: string): TelegramIntegration {
+    const row = this.db.prepare("SELECT * FROM telegram_integrations WHERE user_id = ?").get(userId) as TelegramRow | undefined;
+    return mapTelegram(row);
+  }
+
+  getTelegramSecrets(userId: string): { botTokenEncrypted: string; chatId: string } | null {
+    const row = this.db.prepare("SELECT bot_token_encrypted, chat_id FROM telegram_integrations WHERE user_id = ?").get(userId) as
+      | { bot_token_encrypted: string; chat_id: string }
+      | undefined;
+    return row ? { botTokenEncrypted: row.bot_token_encrypted, chatId: row.chat_id } : null;
+  }
+
+  upsertTelegramIntegration(userId: string, input: { botTokenEncrypted: string; chatId: string }): TelegramIntegration {
+    const now = new Date().toISOString();
+    this.db
+      .prepare(
+        `INSERT INTO telegram_integrations (user_id, bot_token_encrypted, chat_id, created_at, updated_at)
+         VALUES (?, ?, ?, ?, ?)
+         ON CONFLICT(user_id) DO UPDATE SET
+           bot_token_encrypted = excluded.bot_token_encrypted,
+           chat_id = excluded.chat_id,
+           updated_at = excluded.updated_at`
+      )
+      .run(userId, input.botTokenEncrypted, input.chatId, now, now);
+
+    return this.getTelegramIntegration(userId);
+  }
+
+  deleteTelegramIntegration(userId: string): void {
+    this.db.prepare("DELETE FROM telegram_integrations WHERE user_id = ?").run(userId);
+  }
 }
 
 function resolveQuickActionState(action: QuickActionKind, device: Device): boolean | null {
@@ -361,5 +469,48 @@ function mapTelemetry(row: TelemetryRow): TelemetryPoint {
     value: row.value,
     unit: row.unit,
     createdAt: row.created_at
+  };
+}
+
+function mapSubscription(row?: SubscriptionRow): Subscription {
+  if (!row) {
+    return {
+      plan: "free",
+      status: "free",
+      startedAt: null,
+      expiresAt: null,
+      cancelledAt: null,
+      paymentMockLast4: null,
+      paymentEmail: null,
+      isPremium: false,
+      daysLeft: null
+    };
+  }
+
+  const expiresAtMs = row.expires_at ? new Date(row.expires_at).getTime() : 0;
+  const paidUntilFuture = expiresAtMs > Date.now();
+  const isPaidStatus = row.status === "active" || row.status === "cancelled";
+  const active = isPaidStatus && paidUntilFuture;
+  const status = active ? row.status : isPaidStatus && row.expires_at ? "expired" : row.status;
+
+  return {
+    plan: active ? "premium" : row.plan,
+    status,
+    startedAt: row.started_at,
+    expiresAt: row.expires_at,
+    cancelledAt: row.cancelled_at,
+    paymentMockLast4: row.payment_mock_last4,
+    paymentEmail: row.payment_email,
+    isPremium: active,
+    daysLeft: active ? Math.max(0, Math.ceil((expiresAtMs - Date.now()) / 86_400_000)) : null
+  };
+}
+
+function mapTelegram(row?: TelegramRow): TelegramIntegration {
+  return {
+    connected: Boolean(row),
+    chatId: row?.chat_id ?? null,
+    hasBotToken: Boolean(row?.bot_token_encrypted),
+    updatedAt: row?.updated_at ?? null
   };
 }

@@ -4,11 +4,14 @@ import type {
   DeviceType,
   NotificationItem,
   QuickActionKind,
+  ReportSummary,
   Scenario,
   ScenarioCommand,
   ScenarioMetric,
   ScenarioOperator,
+  Subscription,
   TelemetryPoint,
+  TelegramIntegration,
   User,
   UserWithPassword
 } from "../domain/types.js";
@@ -19,6 +22,10 @@ export interface UserStore {
   findByEmail(email: string): MaybePromise<UserWithPassword | null>;
   findById(id: string): MaybePromise<User | null>;
   create(input: { name: string; email: string; passwordHash: string }): MaybePromise<User>;
+  updatePassword(userId: string, passwordHash: string): MaybePromise<void>;
+  createPasswordReset(input: { userId: string; tokenHash: string; expiresAt: string }): MaybePromise<void>;
+  findPasswordReset(tokenHash: string): MaybePromise<{ id: string; userId: string; expiresAt: string; consumedAt: string | null } | null>;
+  consumePasswordReset(id: string): MaybePromise<void>;
 }
 
 export interface HomeStore {
@@ -57,7 +64,11 @@ export interface HomeStore {
       active?: boolean;
     }
   ): MaybePromise<Scenario>;
-  updateScenario(userId: string, id: string, input: Partial<Pick<Scenario, "title" | "active">>): MaybePromise<Scenario | null>;
+  updateScenario(
+    userId: string,
+    id: string,
+    input: Partial<Pick<Scenario, "title" | "metric" | "operator" | "value" | "unit" | "targetDeviceId" | "targetDeviceName" | "command" | "active">>
+  ): MaybePromise<Scenario | null>;
   deleteScenario(userId: string, id: string): MaybePromise<Scenario | null>;
   listNotifications(userId: string): MaybePromise<NotificationItem[]>;
   createNotification(userId: string, title: string, type?: NotificationItem["type"], unread?: boolean): MaybePromise<NotificationItem>;
@@ -73,4 +84,23 @@ export interface HomeStore {
     }
   ): MaybePromise<TelemetryPoint>;
   applyQuickAction(userId: string, action: QuickActionKind): MaybePromise<Device[]>;
+  getSubscription(userId: string): MaybePromise<Subscription>;
+  upsertSubscription(
+    userId: string,
+    input: {
+      plan: Subscription["plan"];
+      status: Subscription["status"];
+      startedAt: string | null;
+      expiresAt: string | null;
+      cancelledAt: string | null;
+      paymentMockLast4: string | null;
+      paymentEmail: string | null;
+    }
+  ): MaybePromise<Subscription>;
+  getTelegramIntegration(userId: string): MaybePromise<TelegramIntegration>;
+  getTelegramSecrets(userId: string): MaybePromise<{ botTokenEncrypted: string; chatId: string } | null>;
+  upsertTelegramIntegration(userId: string, input: { botTokenEncrypted: string; chatId: string }): MaybePromise<TelegramIntegration>;
+  deleteTelegramIntegration(userId: string): MaybePromise<void>;
 }
+
+export type ReportRange = ReportSummary["range"];

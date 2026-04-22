@@ -15,6 +15,21 @@ const loginSchema = z.object({
   password: z.string().min(1).max(128)
 });
 
+const forgotPasswordSchema = z.object({
+  email: z.string().email()
+});
+
+const resetPasswordSchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/, "Код должен состоять из 6 цифр"),
+  password: z.string().min(6).max(128)
+});
+
+const verifyResetCodeSchema = z.object({
+  email: z.string().email(),
+  code: z.string().regex(/^\d{6}$/, "Код должен состоять из 6 цифр")
+});
+
 export function authRoutes(auth: AuthService) {
   const router = Router();
 
@@ -32,6 +47,30 @@ export function authRoutes(auth: AuthService) {
     asyncHandler(async (request, response) => {
       const input = loginSchema.parse(request.body);
       response.json(await auth.login(input));
+    })
+  );
+
+  router.post(
+    "/forgot-password",
+    asyncHandler(async (request, response) => {
+      const input = forgotPasswordSchema.parse(request.body);
+      response.json(await auth.forgotPassword(input));
+    })
+  );
+
+  router.post(
+    "/verify-reset-code",
+    asyncHandler(async (request, response) => {
+      const input = verifyResetCodeSchema.parse(request.body);
+      response.json(await auth.verifyResetCode(input));
+    })
+  );
+
+  router.post(
+    "/reset-password",
+    asyncHandler(async (request, response) => {
+      const input = resetPasswordSchema.parse(request.body);
+      response.json(await auth.resetPassword(input));
     })
   );
 
