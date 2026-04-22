@@ -1,6 +1,6 @@
 # Smart Flow Home
 
-Рабочий monorepo для дипломного интерфейса умного дома: React frontend, REST BFF и подключение к telemetry backend через gRPC collector. Папка `commerce` из исходного backend не используется.
+Рабочий monorepo для интерфейса умного дома: React frontend, REST BFF и подключение к telemetry backend через gRPC collector.
 
 ## Быстрый запуск
 
