@@ -5,6 +5,7 @@ import { Area, AreaChart, CartesianGrid, Line, LineChart, ResponsiveContainer, T
 import { useState } from "react";
 import { CreateScenarioModal } from "@/features/scenarios/CreateScenarioModal";
 import { QuickActions } from "@/features/quick-actions/QuickActions";
+import { NewsBanner } from "@/features/news/NewsBanner";
 import { api } from "@/shared/api/http";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { Button } from "@/shared/ui/Button";
@@ -15,6 +16,7 @@ import { StatCard } from "@/widgets/dashboard/StatCard";
 export function DashboardPage() {
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const dashboard = useQuery({ queryKey: queryKeys.dashboard, queryFn: api.dashboard });
+  const news = useQuery({ queryKey: queryKeys.news, queryFn: api.news, enabled: dashboard.data?.subscription?.isPremium === false });
   const data = dashboard.data;
   const backendStatus = getBackendStatusView(data?.backendStatus);
 
@@ -28,6 +30,8 @@ export function DashboardPage() {
       </section>
 
       <QuickActions />
+
+      {!data?.subscription?.isPremium ? <NewsBanner items={news.data?.news ?? []} /> : null}
 
       <section className="grid gap-6 xl:grid-cols-[1.5fr,1fr]">
         <Card className="rounded-3xl">

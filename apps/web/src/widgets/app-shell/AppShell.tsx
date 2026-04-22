@@ -24,6 +24,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { useTheme } from "@/app/providers/ThemeProvider";
 import { cn } from "@/shared/lib/cn";
 import { getBackendStatusView } from "@/shared/lib/backendStatus";
+import { FreeVersionBanner } from "@/features/subscription/FreeVersionBanner";
 
 const nav = [
   { to: "/", label: "Дашборд", icon: Home },
@@ -164,6 +165,8 @@ export function AppShell() {
               </NavLink>
             ))}
           </div>
+
+          {dashboard.data?.subscription?.isPremium === false ? <div className="mb-6"><FreeVersionBanner /></div> : null}
 
           <Outlet />
         </main>

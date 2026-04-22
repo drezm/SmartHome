@@ -48,6 +48,13 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
           {mode === "register" ? <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Имя" required /> : null}
           <Input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" type="email" required />
           <Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Пароль" required />
+          {mode === "login" ? (
+            <div className="text-right text-sm">
+              <Link to="/forgot-password" className="font-medium text-violet-300 hover:text-violet-200">
+                Забыли пароль?
+              </Link>
+            </div>
+          ) : null}
           {mutation.error ? <p className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">{mutation.error.message}</p> : null}
           <Button type="submit" disabled={mutation.isPending} className="h-12 w-full">
             {mode === "login" ? "Войти" : "Создать аккаунт"}

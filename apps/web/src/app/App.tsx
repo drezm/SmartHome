@@ -5,6 +5,8 @@ import { api } from "@/shared/api/http";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "./providers/AuthProvider";
 import { AuthPage } from "@/pages/auth/AuthPage";
+import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
+import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
 import { DashboardPage } from "@/pages/dashboard/DashboardPage";
 import { DevicesPage } from "@/pages/devices/DevicesPage";
 import { ScenariosPage } from "@/pages/scenarios/ScenariosPage";
@@ -12,6 +14,7 @@ import { AnalyticsPage } from "@/pages/analytics/AnalyticsPage";
 import { NotificationsPage } from "@/pages/notifications/NotificationsPage";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { CheckoutPage } from "@/pages/checkout/CheckoutPage";
 import { AppShell } from "@/widgets/app-shell/AppShell";
 
 export function App() {
@@ -19,6 +22,8 @@ export function App() {
     <Routes>
       <Route path="/login" element={<AuthPage mode="login" />} />
       <Route path="/register" element={<AuthPage mode="register" />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
       <Route element={<RequireAuth />}>
         <Route element={<AppShell />}>
           <Route index element={<DashboardPage />} />
@@ -27,6 +32,7 @@ export function App() {
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="notifications" element={<NotificationsPage />} />
           <Route path="profile" element={<ProfilePage />} />
+          <Route path="checkout" element={<CheckoutPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>
       </Route>

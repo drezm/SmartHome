@@ -1,8 +1,22 @@
+import { Pencil, Trash2 } from "lucide-react";
 import type { Scenario } from "@/shared/api/types";
+import { Button } from "@/shared/ui/Button";
 import { Card, CardContent } from "@/shared/ui/Card";
 import { Switch } from "@/shared/ui/Switch";
 
-export function ScenarioCard({ scenario, pending, onToggle }: { scenario: Scenario; pending?: boolean; onToggle: (checked: boolean) => void }) {
+export function ScenarioCard({
+  scenario,
+  pending,
+  onToggle,
+  onEdit,
+  onDelete
+}: {
+  scenario: Scenario;
+  pending?: boolean;
+  onToggle: (checked: boolean) => void;
+  onEdit: () => void;
+  onDelete: () => void;
+}) {
   return (
     <Card className="rounded-3xl">
       <CardContent>
@@ -18,7 +32,17 @@ export function ScenarioCard({ scenario, pending, onToggle }: { scenario: Scenar
               <p className="break-words text-base text-white">{scenario.action}</p>
             </div>
           </div>
-          <Switch checked={scenario.active} disabled={pending} onCheckedChange={onToggle} />
+          <div className="flex shrink-0 flex-col items-end gap-3">
+            <Switch checked={scenario.active} disabled={pending} onCheckedChange={onToggle} />
+            <div className="flex gap-2">
+              <Button type="button" variant="soft" onClick={onEdit} disabled={pending} className="h-10 px-3" title="Редактировать">
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="danger" onClick={onDelete} disabled={pending} className="h-10 px-3" title="Удалить">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          </div>
         </div>
       </CardContent>
     </Card>

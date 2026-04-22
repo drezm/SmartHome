@@ -4,13 +4,17 @@ import type {
   Device,
   DeviceCategory,
   DeviceType,
+  NewsItem,
   NotificationItem,
   QuickActionKind,
+  ReportSummary,
   Scenario,
   ScenarioCommand,
   ScenarioMetric,
   ScenarioOperator,
+  Subscription,
   TelemetryPoint,
+  TelegramIntegration,
   User
 } from "./types";
 
@@ -48,6 +52,22 @@ async function request<T>(path: string, options: RequestInit = {}): Promise<T> {
   return response.json() as Promise<T>;
 }
 
+async function requestBlob(path: string): Promise<Blob> {
+  const token = getStoredToken();
+  const response = await fetch(`${API_URL}${path}`, {
+    headers: {
+      ...(token ? { Authorization: `Bearer ${token}` } : {})
+    }
+  });
+
+  if (!response.ok) {
+    const payload = await response.json().catch(() => ({ message: "Ошибка запроса" }));
+    throw new Error(payload.message ?? "Ошибка запроса");
+  }
+
+  return response.blob();
+}
+
 export const api = {
   register: (input: { name: string; email: string; password: string }) =>
     request<AuthSession>("/auth/register", {
@@ -60,7 +80,49 @@ export const api = {
       body: JSON.stringify(input)
     }),
   me: () => request<{ user: User }>("/auth/me"),
+  forgotPassword: (input: { email: string }) =>
+    request<{ sent: boolean; devCode?: string }>("/auth/forgot-password", {
+      method: "POST",
+      body: JSON.stringify(input)
+    }),
+  resetPassword: (input: { email: string; code: string; password: string }) =>
+    request<{ changed: boolean }>("/auth/reset-password", {
+      method: "POST",
+      body: JSON.stringify(input)
+    }),
+  verifyResetCode: (input: { email: string; code: string }) =>
+    request<{ valid: boolean }>("/auth/verify-reset-code", {
+      method: "POST",
+      body: JSON.stringify(input)
+    }),
   dashboard: () => request<DashboardSummary>("/dashboard"),
+  subscription: () => request<{ subscription: Subscription }>("/subscription"),
+  checkoutSubscription: (input: { cardholderName: string; cardNumber: string; expires: string; cvc: string; paymentEmail: string }) =>
+    request<{ subscription: Subscription }>("/subscription/checkout", {
+      method: "POST",
+      body: JSON.stringify(input)
+    }),
+  cancelSubscription: () =>
+    request<{ subscription: Subscription }>("/subscription/cancel", {
+      method: "POST"
+    }),
+  telegram: () => request<{ telegram: TelegramIntegration }>("/integrations/telegram"),
+  saveTelegram: (input: { botToken: string; chatId: string }) =>
+    request<{ telegram: TelegramIntegration }>("/integrations/telegram", {
+      method: "PUT",
+      body: JSON.stringify(input)
+    }),
+  testTelegram: () =>
+    request<{ sent: boolean }>("/integrations/telegram/test", {
+      method: "POST"
+    }),
+  deleteTelegram: () =>
+    request<{ telegram: TelegramIntegration }>("/integrations/telegram", {
+      method: "DELETE"
+    }),
+  report: (range: "7d" | "30d") => request<{ report: ReportSummary }>(`/reports/summary?range=${range}`),
+  reportPdf: (range: "7d" | "30d") => requestBlob(`/reports/summary.pdf?range=${range}`),
+  news: () => request<{ news: NewsItem[] }>("/news/it"),
   devices: () => request<{ devices: Device[] }>("/devices"),
   createDevice: (input: { name: string; type: DeviceType; category: DeviceCategory; room: string; enabled?: boolean }) =>
     request<{ device: Device }>("/devices", {
@@ -82,15 +144,20 @@ export const api = {
     targetDeviceId: string | null;
     targetDeviceName: string;
     command: ScenarioCommand;
+    active?: boolean;
   }) =>
     request<{ scenario: Scenario }>("/scenarios", {
       method: "POST",
       body: JSON.stringify(input)
     }),
-  updateScenario: (id: string, input: { title?: string; active?: boolean }) =>
+  updateScenario: (id: string, input: Partial<Pick<Scenario, "title" | "metric" | "operator" | "value" | "unit" | "targetDeviceId" | "targetDeviceName" | "command" | "active">>) =>
     request<{ scenario: Scenario }>(`/scenarios/${id}`, {
       method: "PATCH",
       body: JSON.stringify(input)
+    }),
+  deleteScenario: (id: string) =>
+    request<{ scenario: Scenario }>(`/scenarios/${id}`, {
+      method: "DELETE"
     }),
   telemetry: () => request<{ telemetry: TelemetryPoint[] }>("/telemetry"),
   addTelemetry: (deviceId: string, input: { kind: string; value: number; unit: string | null }) =>
