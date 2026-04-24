@@ -6,7 +6,7 @@ RUN apt-get update \
 
 WORKDIR /src
 
-RUN git clone --filter=blob:none --sparse https://github.com/orkanix/plus-smart-home-tech.git . \
+RUN git clone --filter=blob:none --sparse -b docker-optimised https://github.com/orkanix/plus-smart-home-tech.git . \
   && git sparse-checkout set --no-cone pom.xml 'infra/**' 'telemetry/**' \
   && sed -i '/<module>commerce<\/module>/d' pom.xml \
   && mvn -q -pl infra/discovery-server,infra/config-server,telemetry/collector -am -DskipTests package

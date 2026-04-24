@@ -93,6 +93,11 @@ services:
       target: discovery-server
     ports:
       - "8761:8761"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8761" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     environment:
       EUREKA_INSTANCE_HOSTNAME: discovery-server
 
@@ -103,12 +108,18 @@ services:
       target: config-server
     ports:
       - "8888:8888"
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://discovery-server:8761" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
     environment:
       SERVER_PORT: 8888
       EUREKA_INSTANCE_HOSTNAME: config-server
       EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://discovery-server:8761/eureka/"
     depends_on:
-      - discovery-server
+      discovery-server:
+        condition: service_healthy
 
   collector:
     build:
@@ -118,20 +129,12 @@ services:
     ports:
       - "9090:9090"
       - "8081:8081"
-    environment:
-      SERVER_PORT: 8081
-      SPRING_CONFIG_IMPORT: "optional:configserver:"
-      SPRING_GRPC_SERVER_PORT: 9090
-      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:29092
-      SPRING_KAFKA_TOPICS_HUB_TOPIC_NAME: telemetry.hubs.v1
-      SPRING_KAFKA_TOPICS_SENSOR_TOPIC_NAME: telemetry.sensors.v1
-      SPRING_KAFKA_TOPICS_SNAPSHOTS_TOPIC_NAME: telemetry.snapshots.v1
-      EUREKA_CLIENT_SERVICEURL_DEFAULTZONE: "http://discovery-server:8761/eureka/"
     depends_on:
       kafka-init-topics:
         condition: service_completed_successfully
       config-server:
-        condition: service_started
+        condition: service_healthy
+    command: sh -c "sleep 30 && java -jar app.jar"
 
 volumes:
   bff-data:
