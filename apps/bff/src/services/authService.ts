@@ -133,6 +133,7 @@ function withoutPassword(user: User & { passwordHash?: string }): User {
     id: user.id,
     name: user.name,
     email: user.email,
+    hubId: user.hubId,
     createdAt: user.createdAt
   };
 }

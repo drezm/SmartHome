@@ -38,7 +38,10 @@ describe("auth api", () => {
       totalDevices: 0,
       eventsToday: 0
     });
-    expect(dashboardResponse.body.temperatureSeries).toHaveLength(0);
+
+    const climateResponse = await request(app).get("/api/dashboard/climate?range=24h").set("Authorization", `Bearer ${registerResponse.body.token}`).expect(200);
+    expect(climateResponse.body.temperatureSeries).toHaveLength(0);
+    expect(climateResponse.body.humiditySeries).toHaveLength(0);
   });
 
   it("logs into seeded demo account", async () => {

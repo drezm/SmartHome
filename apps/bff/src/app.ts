@@ -5,7 +5,7 @@ import morgan from "morgan";
 import type { Database } from "better-sqlite3";
 import { env } from "./config/env.js";
 import { getDatabase } from "./db/database.js";
-import { getPostgresPool, migratePostgres } from "./db/postgres.js";
+import { getPostgresPool, verifySupabaseSchema } from "./db/postgres.js";
 import { errorHandler } from "./middleware/errorHandler.js";
 import { authRoutes } from "./routes/authRoutes.js";
 import { homeRoutes } from "./routes/homeRoutes.js";
@@ -19,31 +19,37 @@ import { HomeService } from "./services/homeService.js";
 type AppDependencies = {
   auth: AuthService;
   home: HomeService;
+  storage: "sqlite" | "supabase";
 };
 
 export function createApp(db: Database = getDatabase()) {
+  const users = new UserRepository(db);
   return createAppWithServices({
-    auth: new AuthService(new UserRepository(db)),
-    home: new HomeService(new HomeRepository(db))
+    auth: new AuthService(users),
+    home: new HomeService(new HomeRepository(db), users),
+    storage: "sqlite"
   });
 }
 
 export async function createRuntimeApp() {
   if (!env.DATABASE_URL) {
-    return createApp();
+    throw new Error("DATABASE_URL is required. Configure it with your Supabase Postgres connection string before starting the BFF.");
   }
 
   const pool = getPostgresPool();
-  await migratePostgres(pool);
+  await verifySupabaseSchema(pool);
+  const users = new PostgresUserRepository(pool);
 
   return createAppWithServices({
-    auth: new AuthService(new PostgresUserRepository(pool)),
-    home: new HomeService(new PostgresHomeRepository(pool))
+    auth: new AuthService(users),
+    home: new HomeService(new PostgresHomeRepository(pool), users),
+    storage: "supabase"
   });
 }
 
-function createAppWithServices({ auth, home }: AppDependencies) {
+function createAppWithServices({ auth, home, storage }: AppDependencies) {
   const app = express();
+  app.locals.homeService = home;
 
   app.use(helmet());
   app.use(
@@ -56,13 +62,14 @@ function createAppWithServices({ auth, home }: AppDependencies) {
   app.use(morgan(env.NODE_ENV === "test" ? "tiny" : "dev"));
 
   app.get("/api/health", async (_request, response) => {
-    const dashboard = await home.getDashboard("health-check");
-
     response.json({
       status: "ok",
       service: "smart-flow-bff",
-      storage: env.DATABASE_URL ? "postgres" : "sqlite",
-      collector: dashboard.backendStatus
+      storage,
+      weather: {
+        provider: "open-meteo",
+        apiUrl: env.WEATHER_API_URL
+      }
     });
   });
 

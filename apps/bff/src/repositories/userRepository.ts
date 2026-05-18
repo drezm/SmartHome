@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
 import type { Database } from "better-sqlite3";
 import type { User, UserWithPassword } from "../domain/types.js";
+import { buildHubId } from "../domain/hubId.js";
 
 type UserRow = {
   id: string;
   name: string;
   email: string;
+  hub_id: string;
   password_hash: string;
   created_at: string;
 };
@@ -23,18 +25,30 @@ export class UserRepository {
     return row ? mapUser(row) : null;
   }
 
+  findByHubId(hubId: string): User | null {
+    const row = this.db.prepare("SELECT * FROM users WHERE hub_id = ?").get(hubId) as UserRow | undefined;
+    return row ? mapUser(row) : null;
+  }
+
+  listAll(): User[] {
+    const rows = this.db.prepare("SELECT * FROM users ORDER BY created_at ASC").all() as UserRow[];
+    return rows.map(mapUser);
+  }
+
   create(input: { name: string; email: string; passwordHash: string }): User {
     const userId = randomUUID();
     const createdAt = new Date().toISOString();
+    const hubId = buildHubId(userId);
 
     this.db
-      .prepare("INSERT INTO users (id, name, email, password_hash, created_at) VALUES (?, ?, ?, ?, ?)")
-      .run(userId, input.name, input.email.toLowerCase(), input.passwordHash, createdAt);
+      .prepare("INSERT INTO users (id, name, email, hub_id, password_hash, created_at) VALUES (?, ?, ?, ?, ?, ?)")
+      .run(userId, input.name, input.email.toLowerCase(), hubId, input.passwordHash, createdAt);
 
     return {
       id: userId,
       name: input.name,
       email: input.email.toLowerCase(),
+      hubId,
       createdAt
     };
   }
@@ -75,6 +89,7 @@ function mapUser(row: UserRow): User {
     id: row.id,
     name: row.name,
     email: row.email,
+    hubId: row.hub_id,
     createdAt: row.created_at
   };
 }

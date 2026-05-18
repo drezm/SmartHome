@@ -78,6 +78,7 @@ describe("smtp config", () => {
         id: "user-1",
         name: "Матвей",
         email: "receiver@example.com",
+        hubId: "home-user-1",
         createdAt: "2026-04-22T10:00:00.000Z"
       },
       "123456"
@@ -113,6 +114,7 @@ describe("smtp config", () => {
         id: "user-1",
         name: "Матвей",
         email: "receiver@example.com",
+        hubId: "home-user-1",
         createdAt: "2026-04-22T10:00:00.000Z"
       },
       "123456"

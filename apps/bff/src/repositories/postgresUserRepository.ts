@@ -2,11 +2,13 @@ import { randomUUID } from "node:crypto";
 import type { Pool, PoolClient } from "pg";
 import type { User, UserWithPassword } from "../domain/types.js";
 import type { UserStore } from "./contracts.js";
+import { buildHubId } from "../domain/hubId.js";
 
 type UserRow = {
   id: string;
   name: string;
   email: string;
+  hub_id: string;
   password_hash: string;
   created_at: string;
 };
@@ -24,17 +26,29 @@ export class PostgresUserRepository implements UserStore {
     return result.rows[0] ? mapUser(result.rows[0]) : null;
   }
 
+  async findByHubId(hubId: string): Promise<User | null> {
+    const result = await this.db.query<UserRow>("SELECT * FROM users WHERE hub_id = $1", [hubId]);
+    return result.rows[0] ? mapUser(result.rows[0]) : null;
+  }
+
+  async listAll(): Promise<User[]> {
+    const result = await this.db.query<UserRow>("SELECT * FROM users ORDER BY created_at ASC");
+    return result.rows.map(mapUser);
+  }
+
   async create(input: { name: string; email: string; passwordHash: string }): Promise<User> {
     const client = await this.db.connect();
     const userId = randomUUID();
     const createdAt = new Date().toISOString();
+    const hubId = buildHubId(userId);
 
     try {
       await client.query("BEGIN");
-      await client.query("INSERT INTO users (id, name, email, password_hash, created_at) VALUES ($1, $2, $3, $4, $5)", [
+      await client.query("INSERT INTO users (id, name, email, hub_id, password_hash, created_at) VALUES ($1, $2, $3, $4, $5, $6)", [
         userId,
         input.name,
         input.email.toLowerCase(),
+        hubId,
         input.passwordHash,
         createdAt
       ]);
@@ -50,6 +64,7 @@ export class PostgresUserRepository implements UserStore {
       id: userId,
       name: input.name,
       email: input.email.toLowerCase(),
+      hubId,
       createdAt
     };
   }
@@ -103,6 +118,7 @@ function mapUser(row: UserRow): User {
     id: row.id,
     name: row.name,
     email: row.email,
+    hubId: row.hub_id,
     createdAt: row.created_at
   };
 }

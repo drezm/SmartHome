@@ -22,7 +22,6 @@ const envSchema = z.object({
   BFF_PORT: z.coerce.number().default(3000),
   JWT_SECRET: z.string().min(12).default("dev-smart-flow-secret"),
   JWT_EXPIRES_IN: z.string().default("7d"),
-  HUB_ID: z.string().default("home-1"),
   DB_PATH: z.string().default("./data/smart-home.sqlite"),
   DATABASE_URL: optionalEnvString,
   DATABASE_SSL: z
@@ -42,8 +41,17 @@ const envSchema = z.object({
   APP_PUBLIC_URL: z.string().default("http://localhost:5173"),
   NEWS_RSS_FEEDS: z
     .string()
-    .default("https://www.tadviser.ru/index.php/RSS,https://habr.com/ru/rss/articles/?fl=ru"),
-  COLLECTOR_GRPC_URL: z.string().default("disabled"),
+    .default(
+      [
+        "https://habr.com/ru/rss/hubs/home_automation/articles/?fl=ru",
+        "https://habr.com/ru/rss/hubs/home_automation/news/?fl=ru",
+        "https://habr.com/ru/rss/hubs/internet_of_things/articles/?fl=ru",
+        "https://habr.com/ru/rss/hubs/internet_of_things/news/?fl=ru"
+      ].join(",")
+    ),
+  WEATHER_API_URL: z.string().url().default("https://api.open-meteo.com/v1/forecast"),
+  WEATHER_CACHE_TTL_MS: z.coerce.number().default(300_000),
+  AUTOMATION_INTERVAL_MS: z.coerce.number().default(30_000),
   CORS_ORIGIN: z.string().default("http://localhost:5173")
 });
 

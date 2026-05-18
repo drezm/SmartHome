@@ -1,6 +1,19 @@
 import { Router } from "express";
 import { z } from "zod";
-import type { DeviceCategory, DeviceType, QuickActionKind, ScenarioCommand, ScenarioMetric, ScenarioOperator } from "../domain/types.js";
+import type {
+  DeviceCategory,
+  DateRangePreset,
+  DeviceSourceKind,
+  DeviceSourceMetric,
+  DeviceType,
+  HomeSensorMetric,
+  OpenMeteoMetric,
+  ScenarioCommand,
+  ScenarioAutomationSource,
+  ScenarioMetric,
+  ScenarioOperator,
+  ScenarioTriggerType
+} from "../domain/types.js";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
 import type { AuthService } from "../services/authService.js";
@@ -8,10 +21,15 @@ import type { HomeService } from "../services/homeService.js";
 
 const deviceTypeSchema = z.enum(["MOTION_SENSOR", "TEMPERATURE_SENSOR", "LIGHT_SENSOR", "CLIMATE_SENSOR", "SWITCH_SENSOR"]) satisfies z.ZodType<DeviceType>;
 const deviceCategorySchema = z.enum(["Освещение", "Климат", "Розетки", "Безопасность", "Датчики", "Другое"]) satisfies z.ZodType<DeviceCategory>;
-const scenarioMetricSchema = z.enum(["Температура", "Влажность", "Движение", "Освещенность", "CO2", "Выключатель"]) satisfies z.ZodType<ScenarioMetric>;
+const deviceSourceKindSchema = z.enum(["manual", "home_sensor", "open_meteo"]) satisfies z.ZodType<DeviceSourceKind>;
+const openMeteoMetricSchema = z.enum(["temperature_2m", "relative_humidity_2m", "precipitation", "wind_speed_10m", "shortwave_radiation"]) satisfies z.ZodType<OpenMeteoMetric>;
+const homeSensorMetricSchema = z.enum(["temperature", "humidity", "illuminance", "motion", "co2", "switch"]) satisfies z.ZodType<HomeSensorMetric>;
+const deviceSourceMetricSchema = z.union([openMeteoMetricSchema, homeSensorMetricSchema]) satisfies z.ZodType<DeviceSourceMetric>;
+const scenarioMetricSchema = z.enum(["Температура", "Влажность", "Движение", "Освещенность", "Осадки", "Скорость ветра", "CO2", "Выключатель"]) satisfies z.ZodType<ScenarioMetric>;
 const scenarioOperatorSchema = z.enum([">", "<", "="]) satisfies z.ZodType<ScenarioOperator>;
 const scenarioCommandSchema = z.enum(["Включить", "Выключить", "Инвертировать", "Установить значение"]) satisfies z.ZodType<ScenarioCommand>;
-const quickActionSchema = z.enum(["TURN_ON_LIGHTS", "TURN_OFF_ALL", "NIGHT_MODE", "MORNING_MODE"]) satisfies z.ZodType<QuickActionKind>;
+const scenarioTriggerTypeSchema = z.enum(["automatic", "manual"]) satisfies z.ZodType<ScenarioTriggerType>;
+const scenarioAutomationSourceSchema = z.enum(["sensor", "schedule"]) satisfies z.ZodType<ScenarioAutomationSource>;
 const cardholderPattern = /^[A-Za-zА-Яа-яЁё\s'-]{2,120}$/u;
 
 function digitsOnly(value: string) {
@@ -76,11 +94,14 @@ const createDeviceSchema = z.object({
   type: deviceTypeSchema,
   category: deviceCategorySchema,
   room: z.string().min(2).max(80),
-  enabled: z.boolean().optional()
+  enabled: z.boolean().optional(),
+  sourceKind: deviceSourceKindSchema.optional(),
+  sourceMetric: deviceSourceMetricSchema.nullable().optional()
 });
 
 const updateDeviceSchema = z.object({
   name: z.string().min(2).max(120).optional(),
+  type: deviceTypeSchema.optional(),
   category: deviceCategorySchema.optional(),
   room: z.string().min(2).max(80).optional(),
   online: z.boolean().optional(),
@@ -90,26 +111,62 @@ const updateDeviceSchema = z.object({
 
 const createScenarioSchema = z.object({
   title: z.string().min(2).max(120),
+  triggerType: scenarioTriggerTypeSchema.optional(),
+  automationSource: scenarioAutomationSourceSchema.optional(),
+  favorite: z.boolean().optional(),
   metric: scenarioMetricSchema,
   operator: scenarioOperatorSchema,
   value: z.coerce.number(),
   unit: z.string().nullable().optional(),
+  sourceDeviceId: z.string().nullable().optional(),
+  sourceDeviceName: z.string().nullable().optional(),
+  sourceMetric: z.string().nullable().optional(),
+  scheduleTime: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  scheduleTimezone: z.string().trim().min(1).max(80).nullable().optional(),
   targetDeviceId: z.string().nullable().optional(),
   targetDeviceName: z.string().min(2).max(120),
   command: scenarioCommandSchema,
-  active: z.boolean().optional()
+  active: z.boolean().optional(),
+  actions: z
+    .array(
+      z.object({
+        targetDeviceId: z.string().nullable(),
+        targetDeviceName: z.string().min(2).max(120),
+        command: scenarioCommandSchema,
+        orderIndex: z.coerce.number().int().nonnegative()
+      })
+    )
+    .optional()
 });
 
 const updateScenarioSchema = z.object({
   title: z.string().min(2).max(120).optional(),
+  triggerType: scenarioTriggerTypeSchema.optional(),
+  automationSource: scenarioAutomationSourceSchema.optional(),
+  favorite: z.boolean().optional(),
   metric: scenarioMetricSchema.optional(),
   operator: scenarioOperatorSchema.optional(),
   value: z.coerce.number().optional(),
   unit: z.string().nullable().optional(),
+  sourceDeviceId: z.string().nullable().optional(),
+  sourceDeviceName: z.string().nullable().optional(),
+  sourceMetric: z.string().nullable().optional(),
+  scheduleTime: z.string().regex(/^\d{2}:\d{2}$/).nullable().optional(),
+  scheduleTimezone: z.string().trim().min(1).max(80).nullable().optional(),
   targetDeviceId: z.string().nullable().optional(),
   targetDeviceName: z.string().min(2).max(120).optional(),
   command: scenarioCommandSchema.optional(),
-  active: z.boolean().optional()
+  active: z.boolean().optional(),
+  actions: z
+    .array(
+      z.object({
+        targetDeviceId: z.string().nullable(),
+        targetDeviceName: z.string().min(2).max(120),
+        command: scenarioCommandSchema,
+        orderIndex: z.coerce.number().int().nonnegative()
+      })
+    )
+    .optional()
 });
 
 const telemetrySchema = z.object({
@@ -118,8 +175,15 @@ const telemetrySchema = z.object({
   unit: z.string().nullable().optional()
 });
 
-const quickActionBodySchema = z.object({
-  action: quickActionSchema
+const locationSourceSchema = z.enum(["browser", "manual", "geocoding"]);
+
+const homeLocationSchema = z.object({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+  accuracyMeters: z.coerce.number().nonnegative().nullable().optional(),
+  timezone: z.string().trim().min(1).max(80).default("Europe/Moscow"),
+  label: z.string().trim().min(1).max(120).nullable().optional(),
+  source: locationSourceSchema.default("browser")
 });
 
 const checkoutSchema = z.object({
@@ -146,6 +210,50 @@ const telegramSchema = z.object({
 });
 
 const reportRangeSchema = z.enum(["7d", "30d"]);
+const climateRangeSchema = z.enum(["24h", "7d", "30d"]) satisfies z.ZodType<DateRangePreset>;
+const reportKindSchema = z.enum([
+  "home_summary",
+  "device_activity",
+  "home_climate",
+  "scenario_activity",
+  "notifications",
+  "device_detail",
+  "sensor_detail",
+  "room_comparison",
+  "indoor_outdoor",
+  "peak_activity"
+]);
+const isoDateSchema = z.string().datetime({ offset: true });
+const dateRangeShape = {
+  from: isoDateSchema.optional(),
+  to: isoDateSchema.optional()
+};
+const reportQuerySchema = z
+  .object({
+    range: reportRangeSchema.default("7d"),
+    ...dateRangeShape,
+    deviceId: z.string().trim().min(1).optional(),
+    sensorId: z.string().trim().min(1).optional(),
+    roomA: z.string().trim().min(1).optional(),
+    roomB: z.string().trim().min(1).optional()
+  })
+  .superRefine(validateDateRangeQuery);
+const climateQuerySchema = z
+  .object({
+    range: climateRangeSchema.default("24h"),
+    ...dateRangeShape
+  })
+  .superRefine(validateDateRangeQuery);
+
+function validateDateRangeQuery(input: { from?: string; to?: string }, context: z.RefinementCtx) {
+  if (Boolean(input.from) !== Boolean(input.to)) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Для диапазона нужны обе даты: from и to" });
+    return;
+  }
+  if (input.from && input.to && new Date(input.from).getTime() > new Date(input.to).getTime()) {
+    context.addIssue({ code: z.ZodIssueCode.custom, message: "Дата начала не может быть позже даты окончания" });
+  }
+}
 
 export function homeRoutes(auth: AuthService, home: HomeService) {
   const router = Router();
@@ -155,6 +263,35 @@ export function homeRoutes(auth: AuthService, home: HomeService) {
     "/dashboard",
     asyncHandler<AuthenticatedRequest>(async (request, response) => {
       response.json(await home.getDashboard(request.user.id));
+    })
+  );
+
+  router.get(
+    "/dashboard/climate",
+    asyncHandler<AuthenticatedRequest>(async (request, response) => {
+      const query = climateQuerySchema.parse(request.query);
+      response.json(await home.getClimateSeries(request.user.id, { preset: query.range, from: query.from, to: query.to }));
+    })
+  );
+
+  router.get(
+    "/location",
+    asyncHandler<AuthenticatedRequest>(async (request, response) => {
+      response.json({ location: await home.getHomeLocation(request.user.id) });
+    })
+  );
+
+  router.put(
+    "/location/browser",
+    asyncHandler<AuthenticatedRequest>(async (request, response) => {
+      const input = homeLocationSchema.parse(request.body);
+      response.json({
+        location: await home.updateHomeLocation(request.user.id, {
+          ...input,
+          accuracyMeters: input.accuracyMeters ?? null,
+          label: input.label ?? null
+        })
+      });
     })
   );
 
@@ -209,31 +346,53 @@ export function homeRoutes(auth: AuthService, home: HomeService) {
     })
   );
 
-  router.get(
-    "/reports/summary",
+  router.post(
+    "/scenarios/:id/run",
     asyncHandler<AuthenticatedRequest>(async (request, response) => {
-      const range = reportRangeSchema.parse(request.query.range ?? "7d");
-      response.json({ report: await home.getReportSummary(request.user.id, range) });
+      const result = await home.runManualScenario(request.user.id, String(request.params.id));
+      if (!result) {
+        response.status(404).json({ message: "Ручной сценарий не найден" });
+        return;
+      }
+
+      response.json(result);
     })
   );
 
   router.get(
-    "/reports/summary.pdf",
+    "/reports/catalog",
     asyncHandler<AuthenticatedRequest>(async (request, response) => {
-      const range = reportRangeSchema.parse(request.query.range ?? "7d");
-      const pdf = await home.getReportPdf(request.user.id, range);
+      response.json({ reports: await home.getReportCatalog(request.user.id) });
+    })
+  );
+
+  router.get(
+    "/reports/:kind.pdf",
+    asyncHandler<AuthenticatedRequest>(async (request, response) => {
+      const kind = reportKindSchema.parse(request.params.kind);
+      const query = reportQuerySchema.parse(request.query);
+      const pdf = await home.getReportPdf(request.user.id, kind, { preset: query.range, from: query.from, to: query.to }, query);
       response.setHeader("Content-Type", "application/pdf");
-      response.setHeader("Content-Disposition", `attachment; filename="smart-home-report-${range}.pdf"`);
+      response.setHeader("Content-Disposition", `attachment; filename="smart-home-${kind}-${query.from && query.to ? "custom" : query.range}.pdf"`);
       response.send(pdf);
     })
   );
 
   router.get(
-    "/news/it",
+    "/reports/:kind",
     asyncHandler<AuthenticatedRequest>(async (request, response) => {
-      response.json({ news: await home.listNews(request.user.id) });
+      const kind = reportKindSchema.parse(request.params.kind);
+      const query = reportQuerySchema.parse(request.query);
+      response.json({ report: await home.getReport(request.user.id, kind, { preset: query.range, from: query.from, to: query.to }, query) });
     })
   );
+
+  const listNews = asyncHandler<AuthenticatedRequest>(async (request, response) => {
+    response.json({ news: await home.listNews(request.user.id) });
+  });
+
+  router.get("/news", listNews);
+  router.get("/news/it", listNews);
 
   router.get(
     "/devices",
@@ -357,14 +516,6 @@ export function homeRoutes(auth: AuthService, home: HomeService) {
       }
 
       response.json({ notification });
-    })
-  );
-
-  router.post(
-    "/quick-actions",
-    asyncHandler<AuthenticatedRequest>(async (request, response) => {
-      const { action } = quickActionBodySchema.parse(request.body);
-      response.json({ devices: await home.applyQuickAction(request.user.id, action) });
     })
   );
 
