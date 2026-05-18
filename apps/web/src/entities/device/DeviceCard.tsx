@@ -1,3 +1,4 @@
+import { Pencil, Trash2 } from "lucide-react";
 import type { Device } from "@/shared/api/types";
 import { Badge } from "@/shared/ui/Badge";
 import { Button } from "@/shared/ui/Button";
@@ -5,9 +6,24 @@ import { Card, CardContent } from "@/shared/ui/Card";
 import { Switch } from "@/shared/ui/Switch";
 import { getDeviceIcon } from "./deviceIcon";
 
-export function DeviceCard({ device, pending, onToggle }: { device: Device; pending?: boolean; onToggle: (checked: boolean) => void }) {
+export function DeviceCard({
+  device,
+  pending,
+  readonly = false,
+  onToggle,
+  onEdit,
+  onDelete
+}: {
+  device: Device;
+  pending?: boolean;
+  readonly?: boolean;
+  onToggle?: (checked: boolean) => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+}) {
   const Icon = getDeviceIcon(device.type, device.category);
   const state = getDeviceState(device);
+  const kind = getDeviceKind(device);
 
   return (
     <Card className="flex min-h-[174px] rounded-3xl">
@@ -20,20 +36,53 @@ export function DeviceCard({ device, pending, onToggle }: { device: Device; pend
             <div className="min-w-0">
               <h3 className="break-words font-medium text-white">{device.name}</h3>
               <p className="text-sm text-zinc-400">{device.category} • {device.room}</p>
-              {device.metric ? <p className="mt-2 text-sm text-emerald-400">{device.metric}</p> : null}
+              {device.sourceKind !== "manual" && device.metric ? <p className="mt-2 text-sm text-emerald-400">{device.metric}</p> : null}
             </div>
           </div>
-          <Switch checked={device.enabled} disabled={pending} onCheckedChange={onToggle} />
+          {readonly ? null : <Switch checked={device.enabled} disabled={pending} onCheckedChange={onToggle} />}
         </div>
         <div className="mt-auto flex flex-wrap items-center justify-between gap-3 pt-5">
-          <Badge className={state.className}>{state.label}</Badge>
-          <Button variant="soft" className="min-w-[112px] rounded-xl">
-            Подробнее
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Badge className={state.className}>{state.label}</Badge>
+            <Badge className={kind.className}>{kind.label}</Badge>
+          </div>
+          {readonly ? (
+            <Badge className="border-sky-400/20 bg-sky-500/15 text-sky-200">Системное</Badge>
+          ) : (
+            <div className="flex gap-2">
+              <Button type="button" variant="soft" onClick={onEdit} disabled={pending} className="h-10 px-3" title="Редактировать">
+                <Pencil className="h-4 w-4" />
+              </Button>
+              <Button type="button" variant="danger" onClick={onDelete} disabled={pending} className="h-10 px-3" title="Удалить">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </div>
+          )}
         </div>
       </CardContent>
     </Card>
   );
+}
+
+function getDeviceKind(device: Device) {
+  if (device.sourceKind === "open_meteo") {
+    return {
+      label: "Уличный датчик",
+      className: "border-sky-400/20 bg-sky-500/15 text-sky-200"
+    };
+  }
+
+  if (device.sourceKind === "home_sensor") {
+    return {
+      label: "Домашний датчик",
+      className: "border-amber-400/20 bg-amber-500/15 text-amber-200"
+    };
+  }
+
+  return {
+    label: "Устройство",
+    className: "border-violet-400/20 bg-violet-500/15 text-violet-200"
+  };
 }
 
 function getDeviceState(device: Device) {

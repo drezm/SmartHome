@@ -23,7 +23,8 @@ export function Modal({ open, title, description, maxWidth = "max-w-2xl", childr
           onClick={onClose}
         >
           <motion.div
-            className={`my-0 max-h-[calc(100dvh-1.5rem)] w-full overflow-y-auto ${maxWidth} rounded-3xl border border-white/10 bg-[#0C0D12] p-4 text-white shadow-2xl shadow-black/40 sm:my-auto sm:max-h-[calc(100dvh-2rem)] sm:p-6`}
+            className={`my-0 max-h-[calc(100dvh-1.5rem)] w-full overflow-y-auto ${maxWidth} rounded-3xl border border-white/10 bg-[#0C0D12] p-4 text-white shadow-2xl shadow-black/40 [color-scheme:dark] sm:my-auto sm:max-h-[calc(100dvh-2rem)] sm:p-6`}
+            style={{ colorScheme: "dark" }}
             initial={{ y: 20, opacity: 0, scale: 0.98 }}
             animate={{ y: 0, opacity: 1, scale: 1 }}
             exit={{ y: 16, opacity: 0, scale: 0.98 }}

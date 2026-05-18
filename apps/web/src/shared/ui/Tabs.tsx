@@ -19,7 +19,7 @@ export function Tabs<T extends string>({
 }) {
   return (
     <div>
-      <div className="mb-6 flex h-auto gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-1 sm:grid sm:grid-cols-3">
+      <div className="mb-6 flex h-auto gap-1 overflow-x-auto rounded-2xl border border-white/10 bg-white/5 p-1 sm:grid" style={{ gridTemplateColumns: `repeat(${items.length}, minmax(0, 1fr))` }}>
         {items.map((item) => (
           <button
             key={item.value}

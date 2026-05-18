@@ -3,28 +3,24 @@ import {
   Activity,
   BarChart3,
   Bell,
-  ChevronRight,
   Home,
   LogOut,
   Moon,
   Settings,
   Smartphone,
-  SunMedium,
-  User,
-  Wifi
+  SunMedium
 } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { api } from "@/shared/api/http";
+import { liveQueryOptions } from "@/shared/api/liveQuery";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { Avatar, AvatarFallback } from "@/shared/ui/Avatar";
-import { Badge } from "@/shared/ui/Badge";
 import { Button } from "@/shared/ui/Button";
-import { Progress } from "@/shared/ui/Progress";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { useTheme } from "@/app/providers/ThemeProvider";
 import { cn } from "@/shared/lib/cn";
-import { getBackendStatusView } from "@/shared/lib/backendStatus";
 import { FreeVersionBanner } from "@/features/subscription/FreeVersionBanner";
+import { TelegramAdBanner } from "@/features/ads/TelegramAdBanner";
 
 const nav = [
   { to: "/", label: "Дашборд", icon: Home },
@@ -32,7 +28,6 @@ const nav = [
   { to: "/scenarios", label: "Сценарии", icon: Activity },
   { to: "/analytics", label: "Аналитика", icon: BarChart3 },
   { to: "/notifications", label: "Уведомления", icon: Bell },
-  { to: "/profile", label: "Профиль", icon: User },
   { to: "/settings", label: "Настройки", icon: Settings }
 ];
 
@@ -40,9 +35,8 @@ export function AppShell() {
   const auth = useAuth();
   const { theme, toggleTheme } = useTheme();
   const navigate = useNavigate();
-  const dashboard = useQuery({ queryKey: queryKeys.dashboard, queryFn: api.dashboard });
+  const dashboard = useQuery({ queryKey: queryKeys.dashboard, queryFn: api.dashboard, ...liveQueryOptions });
   const stats = dashboard.data?.stats;
-  const backendStatus = getBackendStatusView(dashboard.data?.backendStatus);
   const [firstName = "M", secondName = "S"] = (auth.user?.name ?? "Матвей Саблуков").split(" ");
   const initials = `${firstName[0] ?? "M"}${secondName[0] ?? "S"}`.toUpperCase();
 
@@ -82,31 +76,7 @@ export function AppShell() {
             ))}
           </nav>
 
-          <div className="mt-8 rounded-3xl border border-white/10 bg-gradient-to-br from-violet-500/15 to-transparent p-4">
-            <p className="text-sm text-zinc-400">Дом</p>
-            <div className="mt-2 flex items-center justify-between">
-              <p className="font-medium text-white">Статус сети</p>
-              <Badge className={backendStatus.badgeClassName}>{backendStatus.label}</Badge>
-            </div>
-            <div className="mt-4 space-y-3 text-sm text-zinc-400">
-              <div className="flex items-center justify-between">
-                <span>Устройства на связи</span>
-                <span className="text-white">{stats?.onlineDevices ?? 0}/{stats?.totalDevices ?? 0}</span>
-              </div>
-              <Progress value={stats?.totalDevices ? (stats.onlineDevices / stats.totalDevices) * 100 : 0} />
-            </div>
-          </div>
-
-          <button onClick={() => navigate("/profile")} className="mt-8 flex w-full items-center gap-3 rounded-2xl border border-white/10 bg-white/5 px-4 py-4 text-left transition hover:bg-white/10">
-            <Avatar className="h-11 w-11 ring-1 ring-white/10">
-              <AvatarFallback className="bg-violet-500/20 text-violet-200">{initials}</AvatarFallback>
-            </Avatar>
-            <div className="min-w-0 flex-1">
-              <p className="truncate font-medium text-white">{auth.user?.name ?? "Профиль"}</p>
-              <p className="text-sm text-zinc-400">Профиль</p>
-            </div>
-            <ChevronRight className="h-4 w-4 text-zinc-500" />
-          </button>
+          {dashboard.data?.subscription?.isPremium === false ? <div className="mt-8"><TelegramAdBanner /></div> : null}
         </aside>
 
         <main className="min-w-0 flex-1 p-4 sm:p-6 lg:p-8">
@@ -141,9 +111,11 @@ export function AppShell() {
                 <LogOut className="h-4 w-4" />
                 <span className="hidden sm:inline">Выйти</span>
               </Button>
-              <Avatar className="h-10 w-10 ring-1 ring-white/10 max-sm:hidden">
-                <AvatarFallback className="bg-violet-500/20 text-violet-200">{initials}</AvatarFallback>
-              </Avatar>
+              <button type="button" onClick={() => navigate("/profile")} aria-label="Открыть профиль" className="rounded-full">
+                <Avatar className="h-10 w-10 ring-1 ring-white/10">
+                  <AvatarFallback className="bg-violet-500/20 text-violet-200">{initials}</AvatarFallback>
+                </Avatar>
+              </button>
             </div>
           </header>
 
@@ -165,6 +137,8 @@ export function AppShell() {
               </NavLink>
             ))}
           </div>
+
+          {dashboard.data?.subscription?.isPremium === false ? <div className="mb-6 xl:hidden"><TelegramAdBanner compact /></div> : null}
 
           {dashboard.data?.subscription?.isPremium === false ? <div className="mb-6"><FreeVersionBanner /></div> : null}
 

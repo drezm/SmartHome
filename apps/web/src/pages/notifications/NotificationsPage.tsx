@@ -3,6 +3,7 @@ import { motion } from "framer-motion";
 import { useMemo, useState } from "react";
 import { NotificationRow } from "@/entities/notification/NotificationRow";
 import { api } from "@/shared/api/http";
+import { liveQueryOptions } from "@/shared/api/liveQuery";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/Card";
 import { Tabs } from "@/shared/ui/Tabs";
@@ -12,7 +13,7 @@ type NotificationTab = "all" | "unread" | "system";
 export function NotificationsPage() {
   const [tab, setTab] = useState<NotificationTab>("all");
   const queryClient = useQueryClient();
-  const notifications = useQuery({ queryKey: queryKeys.notifications, queryFn: api.notifications });
+  const notifications = useQuery({ queryKey: queryKeys.notifications, queryFn: api.notifications, ...liveQueryOptions });
   const mutation = useMutation({
     mutationFn: api.markNotificationRead,
     onSuccess: async () => {

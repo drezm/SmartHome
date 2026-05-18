@@ -5,18 +5,21 @@ import { useState } from "react";
 import { ScenarioCard } from "@/entities/scenario/ScenarioCard";
 import { CreateScenarioModal } from "@/features/scenarios/CreateScenarioModal";
 import { api } from "@/shared/api/http";
+import { liveQueryOptions } from "@/shared/api/liveQuery";
 import { queryKeys } from "@/shared/api/queryKeys";
 import type { Scenario } from "@/shared/api/types";
 import { Button } from "@/shared/ui/Button";
 import { Modal } from "@/shared/ui/Modal";
+import { Tabs } from "@/shared/ui/Tabs";
 import { SectionTitle } from "@/widgets/dashboard/SectionTitle";
 
 export function ScenariosPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingScenario, setEditingScenario] = useState<Scenario | null>(null);
   const [scenarioToDelete, setScenarioToDelete] = useState<Scenario | null>(null);
+  const [tab, setTab] = useState<"automatic" | "manual">("automatic");
   const queryClient = useQueryClient();
-  const scenariosQuery = useQuery({ queryKey: queryKeys.scenarios, queryFn: api.scenarios });
+  const scenariosQuery = useQuery({ queryKey: queryKeys.scenarios, queryFn: api.scenarios, ...liveQueryOptions });
   const mutation = useMutation({
     mutationFn: ({ id, active }: { id: string; active: boolean }) => api.updateScenario(id, { active }),
     onSuccess: async () => {
@@ -37,7 +40,20 @@ export function ScenariosPage() {
       setScenarioToDelete(null);
     }
   });
+  const runMutation = useMutation({
+    mutationFn: (id: string) => api.runScenario(id),
+    onSuccess: async () => {
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: queryKeys.scenarios }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.dashboard }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.devices }),
+        queryClient.invalidateQueries({ queryKey: queryKeys.notifications })
+      ]);
+    }
+  });
   const formOpen = modalOpen || Boolean(editingScenario);
+  const scenarios = scenariosQuery.data?.scenarios ?? [];
+  const visibleScenarios = scenarios.filter((scenario) => scenario.triggerType === tab);
 
   return (
     <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="space-y-6">
@@ -47,18 +63,28 @@ export function ScenariosPage() {
           <Plus className="h-4 w-4" /> Новый сценарий
         </Button>
       </div>
-      <div className="grid gap-4 xl:grid-cols-2">
-        {(scenariosQuery.data?.scenarios ?? []).map((scenario) => (
-          <ScenarioCard
-            key={scenario.id}
-            scenario={scenario}
-            pending={mutation.isPending || deleteMutation.isPending}
-            onToggle={(active) => mutation.mutate({ id: scenario.id, active })}
-            onEdit={() => setEditingScenario(scenario)}
-            onDelete={() => setScenarioToDelete(scenario)}
-          />
-        ))}
-      </div>
+      <Tabs
+        value={tab}
+        items={[
+          { value: "automatic", label: "Автоматические" },
+          { value: "manual", label: "Ручные режимы" }
+        ]}
+        onChange={setTab}
+      >
+        <div className="grid gap-4 xl:grid-cols-2">
+          {visibleScenarios.map((scenario) => (
+            <ScenarioCard
+              key={scenario.id}
+              scenario={scenario}
+              pending={mutation.isPending || deleteMutation.isPending || runMutation.isPending}
+              onToggle={(active) => mutation.mutate({ id: scenario.id, active })}
+              onEdit={() => setEditingScenario(scenario)}
+              onDelete={() => setScenarioToDelete(scenario)}
+              onRun={scenario.triggerType === "manual" ? () => runMutation.mutate(scenario.id) : undefined}
+            />
+          ))}
+        </div>
+      </Tabs>
       <CreateScenarioModal
         open={formOpen}
         scenario={editingScenario}

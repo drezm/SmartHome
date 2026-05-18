@@ -1,10 +1,9 @@
-import { Activity, Bell, Home, Smartphone } from "lucide-react";
+import { Home } from "lucide-react";
 import { Navigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { AuthForm } from "@/features/auth/AuthForm";
 import { Badge } from "@/shared/ui/Badge";
-import { StatCard } from "@/widgets/dashboard/StatCard";
 
 export function AuthPage({ mode }: { mode: "login" | "register" }) {
   const auth = useAuth();
@@ -33,11 +32,7 @@ export function AuthPage({ mode }: { mode: "login" | "register" }) {
             <p className="max-w-lg text-base text-zinc-400">Адаптивная панель управления с авторизацией, аналитикой, устройствами и сценариями автоматизации.</p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-3">
-            <StatCard title="Устройств" value="12" subtitle="8 активны" icon={Smartphone} />
-            <StatCard title="Сценариев" value="5" subtitle="3 включены" icon={Activity} />
-            <StatCard title="Событий" value="148" subtitle="за сегодня" icon={Bell} />
-          </div>
+          <div />
         </div>
 
         <div className="flex items-center justify-center p-6 sm:p-10">

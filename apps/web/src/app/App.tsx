@@ -1,43 +1,46 @@
 import { Navigate, Outlet, Route, Routes } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { useEffect } from "react";
+import { lazy, Suspense, useEffect } from "react";
 import { api } from "@/shared/api/http";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { useAuth } from "./providers/AuthProvider";
-import { AuthPage } from "@/pages/auth/AuthPage";
-import { ForgotPasswordPage } from "@/pages/auth/ForgotPasswordPage";
-import { ResetPasswordPage } from "@/pages/auth/ResetPasswordPage";
-import { DashboardPage } from "@/pages/dashboard/DashboardPage";
-import { DevicesPage } from "@/pages/devices/DevicesPage";
-import { ScenariosPage } from "@/pages/scenarios/ScenariosPage";
-import { AnalyticsPage } from "@/pages/analytics/AnalyticsPage";
-import { NotificationsPage } from "@/pages/notifications/NotificationsPage";
-import { ProfilePage } from "@/pages/profile/ProfilePage";
-import { SettingsPage } from "@/pages/settings/SettingsPage";
-import { CheckoutPage } from "@/pages/checkout/CheckoutPage";
 import { AppShell } from "@/widgets/app-shell/AppShell";
+
+const AuthPage = lazy(() => import("@/pages/auth/AuthPage").then((module) => ({ default: module.AuthPage })));
+const ForgotPasswordPage = lazy(() => import("@/pages/auth/ForgotPasswordPage").then((module) => ({ default: module.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import("@/pages/auth/ResetPasswordPage").then((module) => ({ default: module.ResetPasswordPage })));
+const DashboardPage = lazy(() => import("@/pages/dashboard/DashboardPage").then((module) => ({ default: module.DashboardPage })));
+const DevicesPage = lazy(() => import("@/pages/devices/DevicesPage").then((module) => ({ default: module.DevicesPage })));
+const ScenariosPage = lazy(() => import("@/pages/scenarios/ScenariosPage").then((module) => ({ default: module.ScenariosPage })));
+const AnalyticsPage = lazy(() => import("@/pages/analytics/AnalyticsPage").then((module) => ({ default: module.AnalyticsPage })));
+const NotificationsPage = lazy(() => import("@/pages/notifications/NotificationsPage").then((module) => ({ default: module.NotificationsPage })));
+const ProfilePage = lazy(() => import("@/pages/profile/ProfilePage").then((module) => ({ default: module.ProfilePage })));
+const SettingsPage = lazy(() => import("@/pages/settings/SettingsPage").then((module) => ({ default: module.SettingsPage })));
+const CheckoutPage = lazy(() => import("@/pages/checkout/CheckoutPage").then((module) => ({ default: module.CheckoutPage })));
 
 export function App() {
   return (
-    <Routes>
-      <Route path="/login" element={<AuthPage mode="login" />} />
-      <Route path="/register" element={<AuthPage mode="register" />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
-      <Route path="/reset-password" element={<ResetPasswordPage />} />
-      <Route element={<RequireAuth />}>
-        <Route element={<AppShell />}>
-          <Route index element={<DashboardPage />} />
-          <Route path="devices" element={<DevicesPage />} />
-          <Route path="scenarios" element={<ScenariosPage />} />
-          <Route path="analytics" element={<AnalyticsPage />} />
-          <Route path="notifications" element={<NotificationsPage />} />
-          <Route path="profile" element={<ProfilePage />} />
-          <Route path="checkout" element={<CheckoutPage />} />
-          <Route path="settings" element={<SettingsPage />} />
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        <Route path="/login" element={<AuthPage mode="login" />} />
+        <Route path="/register" element={<AuthPage mode="register" />} />
+        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route element={<RequireAuth />}>
+          <Route element={<AppShell />}>
+            <Route index element={<DashboardPage />} />
+            <Route path="devices" element={<DevicesPage />} />
+            <Route path="scenarios" element={<ScenariosPage />} />
+            <Route path="analytics" element={<AnalyticsPage />} />
+            <Route path="notifications" element={<NotificationsPage />} />
+            <Route path="profile" element={<ProfilePage />} />
+            <Route path="checkout" element={<CheckoutPage />} />
+            <Route path="settings" element={<SettingsPage />} />
+          </Route>
         </Route>
-      </Route>
-      <Route path="*" element={<Navigate to="/" replace />} />
-    </Routes>
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+    </Suspense>
   );
 }
 
@@ -69,4 +72,8 @@ function RequireAuth() {
   }
 
   return <Outlet />;
+}
+
+function PageFallback() {
+  return <div className="flex min-h-screen items-center justify-center bg-[#09090B] text-zinc-300">Загрузка...</div>;
 }

@@ -81,22 +81,8 @@ export function ProfilePage() {
             ) : null}
 
             {tab === "integrations" ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card className="rounded-3xl">
-                  <CardContent>
-                    <p className="font-medium text-white">Yandex Smart Home</p>
-                    <p className="mt-1 text-sm text-zinc-400">Не подключено</p>
-                  </CardContent>
-                </Card>
-                <Card className="rounded-3xl">
-                  <CardContent>
-                    <p className="font-medium text-white">Telemetry Collector</p>
-                    <p className="mt-1 text-sm text-zinc-400">gRPC bridge</p>
-                  </CardContent>
-                </Card>
-                <div className="md:col-span-2">
-                  {currentSubscription?.isPremium ? <TelegramPanel /> : <LockedPreview title="Telegram-уведомления" description="Подключение бота доступно по подписке Premium. После оплаты можно получать статусы устройств, телеметрию и события сценариев в Telegram." />}
-                </div>
+              <div className="max-w-3xl">
+                {currentSubscription?.isPremium ? <TelegramPanel /> : <LockedPreview title="Telegram-уведомления" description="Подключение бота доступно по подписке Premium. После оплаты можно получать статусы устройств, телеметрию и события сценариев в Telegram." />}
               </div>
             ) : null}
           </Tabs>
@@ -133,7 +119,7 @@ function SubscriptionPanel({ subscription, onCheckout }: { subscription?: Subscr
             <div>
               <p className="font-medium text-white">{active ? (renewalCancelled ? "Продление Premium отключено" : "SmartHome Premium активна") : "Бесплатная версия"}</p>
               <p className="mt-1 text-sm text-zinc-400">
-                {active ? (renewalCancelled ? `Доступ открыт до ${expiresLabel}, затем включится бесплатная версия.` : `Доступ открыт до ${expiresLabel}`) : "Telegram, расширенная аналитика и PDF-отчеты доступны по подписке."}
+                {active ? (renewalCancelled ? `Доступ открыт до ${expiresLabel}, затем включится бесплатная версия.` : `Доступ открыт до ${expiresLabel}`) : "Telegram, еще 5 отчетов и PDF-экспорт доступны по подписке."}
               </p>
             </div>
           </div>

@@ -14,7 +14,7 @@ export function FreeVersionBanner() {
           </div>
           <div>
             <p className="font-medium text-white">Используется бесплатная версия</p>
-            <p className="mt-1 text-sm text-zinc-400">Premium открывает Telegram-уведомления, расширенную аналитику и PDF-отчеты за 150 ₽/месяц.</p>
+            <p className="mt-1 text-sm text-zinc-400">Premium открывает еще 5 отчетов, Telegram-уведомления и PDF-экспорт за 150 ₽/месяц.</p>
           </div>
         </div>
         <Button onClick={() => navigate("/checkout")} className="w-full sm:w-auto">
