@@ -20,6 +20,17 @@ docker compose up --build
 - email: `matvey@example.com`
 - password: `password123`
 
+Новые пароли при регистрации и восстановлении должны содержать минимум 8 символов и любые 3 группы из 4: строчные буквы, заглавные буквы, цифры, спецсимволы.
+
+Для production-деплоя через reverse proxy можно собрать frontend с относительным API:
+
+```env
+APP_DOMAIN=vm1312229.cloud.nuxt.network
+APP_PUBLIC_URL=https://vm1312229.cloud.nuxt.network
+CORS_ORIGIN=https://vm1312229.cloud.nuxt.network
+VITE_API_URL=/api
+```
+
 ## Локальный запуск без Docker
 
 ```bash
@@ -35,6 +46,17 @@ Kafka оставлена как optional future infrastructure:
 docker compose --profile kafka up -d kafka kafka-init-topics
 ```
 
+Для просмотра локальных сообщений Kafka поднимите UI:
+
+```bash
+docker compose --profile kafka up -d kafka kafka-init-topics kafka-ui
+```
+
+- Kafka UI: http://localhost:8080
+- Для публикации свежих Open-Meteo событий из BFF включите `KAFKA_ENABLED=true`.
+- Если BFF запущен в Docker Compose, используйте `KAFKA_BROKERS=kafka:29092`; если BFF запущен локально без Docker, используйте `KAFKA_BROKERS=localhost:9092`.
+- Topic погодных событий: `open-meteo.weather.v1`.
+
 ## Supabase
 
 1. Выполните SQL из `backups/smart-home-supabase-seed-2026-04-21.sql` в Supabase SQL Editor, если нужна копия текущей локальной базы.
@@ -44,6 +66,7 @@ docker compose --profile kafka up -d kafka kafka-init-topics
 5. Создайте локальный `.env` на основе `.env.example`.
 6. Вставьте Supabase connection string в `DATABASE_URL`.
 7. Оставьте `DATABASE_SSL=true` для Supabase pooler.
+8. Для session-pooler оставьте `DATABASE_POOL_MAX=5`, чтобы BFF не раздувал число одновременных соединений.
 8. Перезапустите BFF или `docker compose up --build`.
 
 Если `DATABASE_URL` пустой или схема Supabase не готова, runtime BFF не стартует.
@@ -97,6 +120,45 @@ SMTP_FROM="SmartHome <your-email@gmail.com>"
 
 Локальный `.env` можно положить в корень проекта или в `apps/bff`. После изменения перезапустите BFF: `npm run dev:bff`.
 
+## Postman
+
+Для импорта используйте:
+
+- `postman/SmartHome.postman_collection.json`
+- `postman/SmartHome.local.postman_environment.json`
+
+Коллекция покрывает все текущие REST-методы BFF, сохраняет JWT после логина и ID созданных сущностей в environment. Для локального запуска через CLI:
+
+```bash
+npm run postman:test
+```
+
+Для запросов восстановления пароля удобнее включить `EMAIL_PROVIDER=dev`, а для Telegram-запросов нужны реальные `telegramBotToken` и `telegramChatId`.
+
+## Test IT
+
+В репозитории есть manifest ручных кейсов и автотестов: `testit/manifest.json`.
+
+```env
+TMS_URL=https://your-testit.example
+TMS_TOKEN=...
+TMS_PROJECT_ID=...
+TMS_CONFIGURATION_ID=...
+```
+
+Команды:
+
+```bash
+npm run test:junit
+npm run postman:test
+npm run testit:sync
+npm run testit:upload
+```
+
+- `testit:sync` создает раздел `SmartHome`, ручные кейсы и карточки автотестов, затем связывает их по manifest.
+- `testit:upload` отправляет JUnit XML из `test-results/` через установленный Test IT CLI.
+- Если исходники лежат в GitHub, можно дополнительно задать `TMS_SOURCE_BASE_URL`, чтобы ссылки автотестов в Test IT вели сразу в репозиторий.
+
 ## Структура
 
 - `apps/web` - React/Vite frontend по FSD: `app`, `pages`, `widgets`, `features`, `entities`, `shared`.
@@ -109,6 +171,6 @@ SMTP_FROM="SmartHome <your-email@gmail.com>"
 - Выдает JWT для локальной авторизации.
 - Дает frontend REST API.
 - Проверяет Supabase-схему при старте и просит применить SQL-миграцию, если не хватает таблиц, колонок, индексов или FK.
-- Не запускает фоновую генерацию sensor data в runtime.
+- Генерирует показания домашних датчиков в фоновом цикле BFF и хранит их отдельно от Open-Meteo.
 - Получает погодную телеметрию через Open-Meteo по домашней локации и сохраняет ее в Supabase.
 - CRUD устройств/сценариев и ручные режимы работают через Supabase без gRPC-синхронизации.

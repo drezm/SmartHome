@@ -54,6 +54,7 @@ import {
   telemetryChangedMessage
 } from "./telegramMessages.js";
 import { formatRangeLabel, isInsideDateRange, resolveDateRange } from "../domain/dateRange.js";
+import { normalizeClimateSeries } from "../domain/climateSeries.js";
 import PDFDocument from "pdfkit";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -708,8 +709,7 @@ export class HomeService {
     ]);
     const scopedTelemetry = telemetry;
     const scopedNotifications = notifications.filter((item) => isInsideDateRange(item.createdAt, range));
-    const temperatureSeries = scopedTelemetry.filter((item) => item.kind === "temperature").map((item) => ({ time: formatChartTime(item.createdAt), value: item.value }));
-    const humiditySeries = scopedTelemetry.filter((item) => item.kind === "humidity").map((item) => ({ time: formatChartTime(item.createdAt), value: item.value }));
+    const climate = normalizeClimateSeries(scopedTelemetry);
     const notificationStats = Object.entries(groupBy(scopedNotifications.map((item) => item.type))).map(([type, count]) => ({ type, count }));
 
     return {
@@ -723,8 +723,8 @@ export class HomeService {
       telemetry,
       scopedTelemetry,
       scopedNotifications,
-      temperatureSeries,
-      humiditySeries,
+      temperatureSeries: climate.temperatureSeries,
+      humiditySeries: climate.humiditySeries,
       deviceActivity: devices.map((device) => ({
         name: device.name,
         enabled: device.enabled,
@@ -1257,10 +1257,11 @@ function formatDateTime(value: string) {
 }
 
 function buildClimateSeries(range: DateRange, telemetry: Awaited<ReturnType<HomeStore["listTelemetryRange"]>>): ClimateSeriesPayload {
+  const climate = normalizeClimateSeries(telemetry);
   return {
     range,
-    temperatureSeries: telemetry.filter((item) => item.kind === "temperature").map((item) => ({ at: item.createdAt, value: item.value })),
-    humiditySeries: telemetry.filter((item) => item.kind === "humidity").map((item) => ({ at: item.createdAt, value: item.value }))
+    temperatureSeries: climate.temperatureSeries,
+    humiditySeries: climate.humiditySeries
   };
 }
 
@@ -1283,8 +1284,8 @@ type ReportContext = {
   telemetry: Awaited<ReturnType<HomeStore["listTelemetryRange"]>>;
   scopedTelemetry: Awaited<ReturnType<HomeStore["listTelemetryRange"]>>;
   scopedNotifications: Awaited<ReturnType<HomeStore["listNotifications"]>>;
-  temperatureSeries: Array<{ time: string; value: number }>;
-  humiditySeries: Array<{ time: string; value: number }>;
+  temperatureSeries: Array<{ at: string; value: number }>;
+  humiditySeries: Array<{ at: string; value: number }>;
   deviceActivity: Array<{ name: string; enabled: boolean; online: boolean; events: number }>;
   scenarioActivity: Array<{ title: string; active: boolean }>;
   notificationStats: Array<{ type: string; count: number }>;
@@ -1452,7 +1453,7 @@ function buildReportPayload(
           metricFromValues("Минимум", values, points[0]?.unit ?? null, (items) => Math.min(...items)),
           metricFromValues("Максимум", values, points[0]?.unit ?? null, (items) => Math.max(...items))
         ]),
-        lineBlock(sensor.name, "Динамика выбранного датчика", [series(sensor.name, points[0]?.unit ?? null, points.map((item) => ({ time: formatChartTime(item.createdAt), value: item.value })))])
+        lineBlock(sensor.name, "Динамика выбранного датчика", [series(sensor.name, points[0]?.unit ?? null, points.map((item) => ({ at: item.createdAt, value: item.value })))])
       ]
     };
   }
@@ -1518,7 +1519,7 @@ function metricsBlock(title: string, items: Array<{ label: string; value: string
   return { type: "metrics", title, items };
 }
 
-function lineBlock(title: string, description: string, seriesItems: Array<{ label: string; unit: string | null; points: Array<{ label: string; value: number }> }>): ReportBlock {
+function lineBlock(title: string, description: string, seriesItems: Array<{ label: string; unit: string | null; points: Array<{ at: string; label: string; value: number }> }>): ReportBlock {
   return { type: "line_chart", title, description, series: seriesItems };
 }
 
@@ -1530,8 +1531,8 @@ function tableBlock(title: string, description: string, columns: string[], rows:
   return { type: "table", title, description, columns, rows };
 }
 
-function series(label: string, unit: string | null, points: Array<{ time: string; value: number }>) {
-  return { label, unit, points: points.map((point) => ({ label: point.time, value: point.value })) };
+function series(label: string, unit: string | null, points: Array<{ at: string; value: number }>) {
+  return { label, unit, points: points.map((point) => ({ at: point.at, label: formatChartTime(point.at), value: point.value })) };
 }
 
 function metricFromValues(label: string, values: number[], unit: string | null, reducer: (values: number[]) => number = (items) => average(items) ?? 0) {
@@ -1610,7 +1611,7 @@ function buildSourceClimate(context: ReportContext, sourceKind: Device["sourceKi
   return {
     temperature: average(telemetry.filter((item) => item.kind === "temperature").map((item) => item.value)),
     humidity: average(telemetry.filter((item) => item.kind === "humidity").map((item) => item.value)),
-    temperatureSeries: telemetry.filter((item) => item.kind === "temperature").map((item) => ({ time: formatChartTime(item.createdAt), value: item.value }))
+    temperatureSeries: telemetry.filter((item) => item.kind === "temperature").map((item) => ({ at: item.createdAt, value: item.value }))
   };
 }
 

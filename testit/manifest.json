@@ -1,0 +1,84 @@
+{
+  "section": "SmartHome",
+  "manualCases": [
+    {
+      "externalId": "SMH-AUTH-001",
+      "title": "Регистрация принимает только сложный пароль",
+      "description": "Пользователь видит требования к паролю и не может зарегистрироваться со слабым паролем.",
+      "steps": [
+        { "action": "Открыть страницу регистрации.", "expected": "Под полем пароля показаны требования." },
+        { "action": "Ввести слабый пароль password123.", "expected": "Кнопка создания аккаунта недоступна." },
+        { "action": "Ввести пароль Secret123! и отправить форму.", "expected": "Аккаунт создается успешно." }
+      ]
+    },
+    {
+      "externalId": "SMH-AUTH-002",
+      "title": "Сброс пароля требует сложный новый пароль",
+      "description": "После подтверждения кода пользователь может сохранить только сложный пароль.",
+      "steps": [
+        { "action": "Запросить код восстановления и перейти к шагу нового пароля.", "expected": "Показаны требования к новому паролю." },
+        { "action": "Ввести слабый пароль.", "expected": "Кнопка сохранения недоступна." },
+        { "action": "Ввести валидный пароль и подтверждение.", "expected": "Пароль меняется успешно." }
+      ]
+    },
+    {
+      "externalId": "SMH-CLIMATE-001",
+      "title": "График влажности не прерывается",
+      "description": "В аналитике влажность отображается непрерывной линией даже при разреженных исходных точках.",
+      "steps": [
+        { "action": "Открыть отчет Климат дома.", "expected": "На графике видны температура и влажность." },
+        { "action": "Выбрать период с разреженными показаниями влажности.", "expected": "Линия влажности не распадается на отдельные сегменты." }
+      ]
+    },
+    {
+      "externalId": "SMH-API-001",
+      "title": "Основной API happy path",
+      "description": "Пользователь может войти, получить дашборд, создать устройство и сценарий.",
+      "steps": [
+        { "action": "Выполнить логин через API.", "expected": "Возвращается JWT token." },
+        { "action": "Создать устройство и сценарий.", "expected": "Оба объекта создаются и доступны в списках." },
+        { "action": "Получить dashboard и telemetry.", "expected": "Ответы возвращают корректные структуры." }
+      ]
+    },
+    {
+      "externalId": "SMH-REPORT-001",
+      "title": "Каталог отчетов и PDF",
+      "description": "После активации Premium пользователь получает расширенные отчеты и PDF-экспорт.",
+      "steps": [
+        { "action": "Открыть каталог отчетов.", "expected": "Доступны базовые отчеты." },
+        { "action": "Активировать Premium.", "expected": "Открываются расширенные отчеты." },
+        { "action": "Скачать PDF.", "expected": "Возвращается PDF-файл." }
+      ]
+    }
+  ],
+  "autoTests": [
+    {
+      "externalId": "vitest.auth.password-policy",
+      "title": "Auth password policy",
+      "namespace": "vitest.auth",
+      "source": "apps/bff/src/test/auth.test.ts",
+      "workItemExternalIds": ["SMH-AUTH-001", "SMH-AUTH-002"]
+    },
+    {
+      "externalId": "vitest.climate.interpolation",
+      "title": "Climate humidity interpolation",
+      "namespace": "vitest.climate",
+      "source": "apps/bff/src/test/climateSeries.test.ts",
+      "workItemExternalIds": ["SMH-CLIMATE-001"]
+    },
+    {
+      "externalId": "vitest.web.auth-form",
+      "title": "Auth form password checklist",
+      "namespace": "vitest.web",
+      "source": "apps/web/src/features/auth/AuthForm.test.tsx",
+      "workItemExternalIds": ["SMH-AUTH-001"]
+    },
+    {
+      "externalId": "postman.api.happy-path",
+      "title": "Postman API happy path",
+      "namespace": "postman.api",
+      "source": "postman/SmartHome.postman_collection.json",
+      "workItemExternalIds": ["SMH-API-001", "SMH-REPORT-001"]
+    }
+  ]
+}

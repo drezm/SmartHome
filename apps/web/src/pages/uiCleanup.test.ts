@@ -103,6 +103,7 @@ describe("UI cleanup plan", () => {
     expect(analyticsPage).toContain("downloadError");
     expect(analyticsPage).toContain("ReportBlockView");
     expect(analyticsPage).toContain('type="date"');
+    expect(read("pages/analytics/AnalyticsCharts.tsx")).toContain("connectNulls");
     expect(deviceCard).toContain('device.sourceKind !== "manual"');
   });
 });

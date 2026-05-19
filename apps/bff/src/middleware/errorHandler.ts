@@ -4,7 +4,7 @@ import type { NextFunction, Request, Response } from "express";
 export function errorHandler(error: unknown, _request: Request, response: Response, _next: NextFunction) {
   if (error instanceof ZodError) {
     response.status(400).json({
-      message: "Некорректные данные",
+      message: error.issues[0]?.message ?? "Некорректные данные",
       issues: error.issues.map((issue) => ({
         path: issue.path.join("."),
         message: issue.message

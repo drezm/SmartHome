@@ -29,7 +29,7 @@ export function ReportLineChart({ series }: { series: ReportSeries[] }) {
         <Tooltip contentStyle={{ background: "#111216", border: "1px solid rgba(255,255,255,0.08)", color: "#fff" }} />
         {series.length > 1 ? <Legend /> : null}
         {series.map((item, index) => (
-          <Line key={item.label} type="monotone" dataKey={item.label} stroke={colors[index % colors.length]} strokeWidth={3} dot={false} />
+          <Line key={item.label} connectNulls type="monotone" dataKey={item.label} stroke={colors[index % colors.length]} strokeWidth={3} dot={false} />
         ))}
       </LineChart>
     </ResponsiveContainer>
@@ -54,10 +54,10 @@ function mergeSeries(series: ReportSeries[]) {
   const rows = new Map<string, Record<string, string | number>>();
   series.forEach((item) => {
     item.points.forEach((point) => {
-      const row = rows.get(point.label) ?? { label: point.label };
+      const row = rows.get(point.at) ?? { at: point.at, label: point.label };
       row[item.label] = point.value;
-      rows.set(point.label, row);
+      rows.set(point.at, row);
     });
   });
-  return Array.from(rows.values());
+  return Array.from(rows.values()).sort((left, right) => String(left.at).localeCompare(String(right.at)));
 }

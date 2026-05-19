@@ -13,9 +13,16 @@
     "dev:bff": "npm run dev -w @smart-home/bff",
     "build": "npm run build --workspaces",
     "test": "npm run test --workspaces --if-present",
-    "typecheck": "npm run typecheck --workspaces --if-present"
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test:junit:bff": "mkdir -p test-results && npm test -w @smart-home/bff -- --reporter=default --reporter=junit --outputFile.junit=../../test-results/bff.junit.xml",
+    "test:junit:web": "mkdir -p test-results && npm test -w @smart-home/web -- --reporter=default --reporter=junit --outputFile.junit=../../test-results/web.junit.xml",
+    "test:junit": "npm run test:junit:bff && npm run test:junit:web",
+    "postman:test": "mkdir -p test-results && newman run postman/SmartHome.postman_collection.json -e postman/SmartHome.local.postman_environment.json -r cli,junit --reporter-junit-export test-results/postman.junit.xml",
+    "testit:sync": "node scripts/testit-sync.mjs",
+    "testit:upload": "node scripts/testit-upload.mjs"
   },
   "devDependencies": {
-    "concurrently": "^9.1.2"
+    "concurrently": "^9.1.2",
+    "newman": "^6.2.2"
   }
 }

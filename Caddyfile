@@ -1,0 +1,21 @@
+{
+	email {$CADDY_EMAIL:admin@example.com}
+}
+
+(smart_home_proxy) {
+	handle /api/* {
+		reverse_proxy bff:3000
+	}
+
+	handle {
+		reverse_proxy web:4173
+	}
+}
+
+:80 {
+	import smart_home_proxy
+}
+
+{$APP_DOMAIN:localhost} {
+	import smart_home_proxy
+}

@@ -1,0 +1,168 @@
+{
+  "info": {
+    "_postman_id": "fbf9bf44-7ed0-4a52-9eec-689cc2fa0132",
+    "name": "SmartHome API",
+    "description": "Runnable collection for SmartHome BFF. Import together with SmartHome Local environment.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "event": [
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [
+          "pm.test('response has expected status', function () {",
+          "  pm.expect(pm.response.code).to.be.oneOf([200, 201, 204, 400, 404]);",
+          "});"
+        ]
+      }
+    }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        { "name": "Health", "request": { "method": "GET", "url": "{{baseUrl}}/health" } }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"name\":\"Postman User\",\"email\":\"{{registerEmail}}\",\"password\":\"{{strongPassword}}\"}" },
+            "url": "{{baseUrl}}/auth/register"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const body = pm.response.json();",
+                  "pm.environment.set('token', body.token);",
+                  "pm.test('token returned', function () { pm.expect(body.token).to.be.a('string'); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"email\":\"{{email}}\",\"password\":\"{{password}}\"}" },
+            "url": "{{baseUrl}}/auth/login"
+          }
+        },
+        { "name": "Forgot password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{email}}\"}" }, "url": "{{baseUrl}}/auth/forgot-password" } },
+        { "name": "Verify reset code", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{email}}\",\"code\":\"000000\"}" }, "url": "{{baseUrl}}/auth/verify-reset-code" } },
+        { "name": "Reset password", "request": { "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"email\":\"{{email}}\",\"code\":\"000000\",\"password\":\"{{strongPassword}}\"}" }, "url": "{{baseUrl}}/auth/reset-password" } },
+        { "name": "Current user", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/auth/me" } }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        { "name": "Dashboard summary", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/dashboard" } },
+        { "name": "Climate 24h", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/dashboard/climate?range=24h" } }
+      ]
+    },
+    {
+      "name": "Location",
+      "item": [
+        { "name": "Get location", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/location" } },
+        { "name": "Save browser location", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"latitude\":55.7558,\"longitude\":37.6173,\"accuracyMeters\":20,\"timezone\":\"Europe/Moscow\",\"label\":\"Москва\"}" }, "url": "{{baseUrl}}/location/browser" } }
+      ]
+    },
+    {
+      "name": "Devices",
+      "item": [
+        { "name": "List devices", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/devices" } },
+        {
+          "name": "Create device",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.environment.set('deviceId', pm.response.json().device.id);"] } }],
+          "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"name\":\"Postman Lamp\",\"type\":\"SWITCH_SENSOR\",\"category\":\"Освещение\",\"room\":\"Тестовая\",\"enabled\":true,\"sourceKind\":\"manual\",\"sourceMetric\":null}" }, "url": "{{baseUrl}}/devices" }
+        },
+        { "name": "Update device", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"enabled\":false}" }, "url": "{{baseUrl}}/devices/{{deviceId}}" } },
+        { "name": "Add telemetry", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"kind\":\"switch\",\"value\":0,\"unit\":null}" }, "url": "{{baseUrl}}/devices/{{deviceId}}/telemetry" } },
+        { "name": "Delete device", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "DELETE", "url": "{{baseUrl}}/devices/{{deviceId}}" } }
+      ]
+    },
+    {
+      "name": "Scenarios",
+      "item": [
+        { "name": "List scenarios", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/scenarios" } },
+        {
+          "name": "Create manual scenario",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["pm.environment.set('scenarioId', pm.response.json().scenario.id);"] } }],
+          "request": {
+            "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{\"title\":\"Postman mode\",\"triggerType\":\"manual\",\"automationSource\":\"sensor\",\"favorite\":true,\"metric\":\"Выключатель\",\"operator\":\"=\",\"value\":1,\"unit\":null,\"sourceDeviceId\":null,\"sourceDeviceName\":null,\"sourceMetric\":null,\"targetDeviceId\":\"living-light\",\"targetDeviceName\":\"Люстра\",\"command\":\"Включить\",\"active\":true,\"actions\":[{\"targetDeviceId\":\"living-light\",\"targetDeviceName\":\"Люстра\",\"command\":\"Включить\",\"orderIndex\":0}]}" },
+            "url": "{{baseUrl}}/scenarios"
+          }
+        },
+        { "name": "Update scenario", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "PATCH", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"favorite\":false}" }, "url": "{{baseUrl}}/scenarios/{{scenarioId}}" } },
+        { "name": "Run manual scenario", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "POST", "url": "{{baseUrl}}/scenarios/{{scenarioId}}/run" } },
+        { "name": "Delete scenario", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "DELETE", "url": "{{baseUrl}}/scenarios/{{scenarioId}}" } }
+      ]
+    },
+    {
+      "name": "Reports",
+      "item": [
+        { "name": "Catalog", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/reports/catalog" } },
+        { "name": "Home summary", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/reports/home_summary?range=7d" } },
+        { "name": "Sensor detail", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/reports/sensor_detail?range=7d&sensorId={{sensorId}}" } },
+        { "name": "Home climate PDF", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/reports/home_climate.pdf?range=7d" } }
+      ]
+    },
+    {
+      "name": "Subscription",
+      "item": [
+        { "name": "Get subscription", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/subscription" } },
+        { "name": "Checkout", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "POST", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"cardholderName\":\"Matvey Sablukov\",\"cardNumber\":\"4111111111111111\",\"expires\":\"12/30\",\"cvc\":\"123\",\"paymentEmail\":\"matvey@example.com\"}" }, "url": "{{baseUrl}}/subscription/checkout" } },
+        { "name": "Cancel", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "POST", "url": "{{baseUrl}}/subscription/cancel" } }
+      ]
+    },
+    {
+      "name": "Telegram",
+      "description": "Requires real telegramBotToken and telegramChatId values.",
+      "item": [
+        { "name": "Get integration", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/integrations/telegram" } },
+        { "name": "Save integration", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "PUT", "header": [{ "key": "Content-Type", "value": "application/json" }], "body": { "mode": "raw", "raw": "{\"botToken\":\"{{telegramBotToken}}\",\"chatId\":\"{{telegramChatId}}\"}" }, "url": "{{baseUrl}}/integrations/telegram" } },
+        { "name": "Send test", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "POST", "url": "{{baseUrl}}/integrations/telegram/test" } },
+        { "name": "Delete integration", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "DELETE", "url": "{{baseUrl}}/integrations/telegram" } }
+      ]
+    },
+    {
+      "name": "News",
+      "item": [
+        { "name": "News", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/news" } },
+        { "name": "News legacy alias", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/news/it" } }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "item": [
+        {
+          "name": "List notifications",
+          "event": [{ "listen": "test", "script": { "type": "text/javascript", "exec": ["const items = pm.response.json().notifications;", "if (items.length) pm.environment.set('notificationId', items[0].id);"] } }],
+          "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/notifications" }
+        },
+        { "name": "Mark notification read", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "PATCH", "url": "{{baseUrl}}/notifications/{{notificationId}}/read" } }
+      ]
+    },
+    {
+      "name": "Telemetry",
+      "item": [
+        { "name": "List telemetry", "request": { "auth": { "type": "bearer", "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }] }, "method": "GET", "url": "{{baseUrl}}/telemetry" } }
+      ]
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { KeyRound, Mail } from "lucide-react";
 import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/shared/api/http";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE, PASSWORD_REQUIREMENTS } from "@/shared/lib/passwordPolicy";
 import { Button } from "@/shared/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/Card";
 import { Input } from "@/shared/ui/Input";
@@ -41,7 +42,7 @@ export function ForgotPasswordPage() {
       }
       return;
     }
-    if (password === confirm) {
+    if (password === confirm && isStrongPassword(password)) {
       reset.mutate();
     }
   }
@@ -84,6 +85,7 @@ export function ForgotPasswordPage() {
               <>
                 <Input value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Новый пароль" type="password" required />
                 <Input value={confirm} onChange={(event) => setConfirm(event.target.value)} placeholder="Повторите пароль" type="password" required />
+                <PasswordChecklist password={password} />
                 {password && confirm && password !== confirm ? <p className="text-sm text-red-300">Пароли не совпадают</p> : null}
               </>
             ) : null}
@@ -93,7 +95,7 @@ export function ForgotPasswordPage() {
             {verify.error ? <p className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">{verify.error.message}</p> : null}
             {reset.error ? <p className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">{reset.error.message}</p> : null}
 
-            <Button type="submit" disabled={forgot.isPending || verify.isPending || reset.isPending || (step === "code" && code.length !== 6) || (step === "password" && password !== confirm)} className="h-12 w-full">
+            <Button type="submit" disabled={forgot.isPending || verify.isPending || reset.isPending || (step === "code" && code.length !== 6) || (step === "password" && (password !== confirm || !isStrongPassword(password)))} className="h-12 w-full">
               {step === "email" ? "Получить код" : step === "code" ? "Проверить код" : "Сохранить пароль"}
             </Button>
             <div className="text-center text-sm text-zinc-400">
@@ -104,6 +106,26 @@ export function ForgotPasswordPage() {
           </CardContent>
         </Card>
       </form>
+    </div>
+  );
+}
+
+function PasswordChecklist({ password }: { password: string }) {
+  const fulfilledGroups = PASSWORD_REQUIREMENTS.slice(1).filter((requirement) => requirement.test(password)).length;
+
+  return (
+    <div className="space-y-2 rounded-2xl border border-white/10 bg-black/20 p-3 text-sm">
+      <p className="text-zinc-300">{PASSWORD_POLICY_MESSAGE}</p>
+      <div className="flex flex-wrap gap-2">
+        {PASSWORD_REQUIREMENTS.map((requirement, index) => {
+          const matched = index === 0 ? requirement.test(password) : fulfilledGroups >= 3 && requirement.test(password);
+          return (
+            <span key={requirement.label} className={matched ? "text-emerald-300" : "text-zinc-500"}>
+              {matched ? "✓" : "•"} {requirement.label}
+            </span>
+          );
+        })}
+      </div>
     </div>
   );
 }

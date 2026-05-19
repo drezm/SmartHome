@@ -225,7 +225,7 @@ export interface ReportMetricItem {
 export interface ReportSeries {
   label: string;
   unit: string | null;
-  points: Array<{ label: string; value: number }>;
+  points: Array<{ at: string; label: string; value: number }>;
 }
 
 export type ReportBlock =

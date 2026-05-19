@@ -15,7 +15,7 @@ describe("auth api", () => {
 
     const registerResponse = await request(app)
       .post("/api/auth/register")
-      .send({ name: "Test User", email: "test@example.com", password: "secret123" })
+      .send({ name: "Test User", email: "test@example.com", password: "Secret123!" })
       .expect(201);
 
     expect(registerResponse.body.user.email).toBe("test@example.com");
@@ -55,6 +55,17 @@ describe("auth api", () => {
     expect(response.body.user.email).toBe("matvey@example.com");
   });
 
+  it("rejects weak passwords on registration", async () => {
+    const app = createApp();
+
+    const response = await request(app)
+      .post("/api/auth/register")
+      .send({ name: "Weak User", email: "weak@example.com", password: "password123" })
+      .expect(400);
+
+    expect(response.body.message).toContain("минимум 8 символов");
+  });
+
   it("creates a password reset token and changes password", async () => {
     const db = resetDatabaseForTests();
     let resetCode = "";
@@ -69,9 +80,10 @@ describe("auth api", () => {
     expect(resetCode).toMatch(/^\d{6}$/);
     await expect(auth.verifyResetCode({ email: "matvey@example.com", code: resetCode })).resolves.toEqual({ valid: true });
     await expect(auth.resetPassword({ email: "matvey@example.com", code: "000000", password: "new-password123" })).rejects.toThrow("Код восстановления");
+    await expect(auth.resetPassword({ email: "matvey@example.com", code: resetCode, password: "password123" })).rejects.toThrow("Пароль");
 
-    await auth.resetPassword({ email: "matvey@example.com", code: resetCode, password: "new-password123" });
-    await expect(auth.login({ email: "matvey@example.com", password: "new-password123" })).resolves.toMatchObject({
+    await auth.resetPassword({ email: "matvey@example.com", code: resetCode, password: "New-password123" });
+    await expect(auth.login({ email: "matvey@example.com", password: "New-password123" })).resolves.toMatchObject({
       user: { email: "matvey@example.com" }
     });
   });

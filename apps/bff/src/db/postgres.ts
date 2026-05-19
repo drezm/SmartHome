@@ -12,7 +12,8 @@ export function getPostgresPool() {
   if (!pool) {
     pool = new Pool({
       connectionString: env.DATABASE_URL,
-      ssl: env.DATABASE_SSL ? { rejectUnauthorized: false } : undefined
+      ssl: env.DATABASE_SSL ? { rejectUnauthorized: false } : undefined,
+      max: env.DATABASE_POOL_MAX
     });
     pool.on("error", (error) => {
       console.error("Postgres idle client error", error);

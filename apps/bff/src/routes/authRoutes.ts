@@ -3,11 +3,12 @@ import { z } from "zod";
 import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
 import type { AuthService } from "../services/authService.js";
+import { passwordSchema } from "../domain/passwordPolicy.js";
 
 const registerSchema = z.object({
   name: z.string().min(2).max(80),
   email: z.string().email(),
-  password: z.string().min(6).max(128)
+  password: passwordSchema
 });
 
 const loginSchema = z.object({
@@ -22,7 +23,7 @@ const forgotPasswordSchema = z.object({
 const resetPasswordSchema = z.object({
   email: z.string().email(),
   code: z.string().regex(/^\d{6}$/, "Код должен состоять из 6 цифр"),
-  password: z.string().min(6).max(128)
+  password: passwordSchema
 });
 
 const verifyResetCodeSchema = z.object({

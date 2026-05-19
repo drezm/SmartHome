@@ -3,8 +3,10 @@ services:
     build:
       context: .
       dockerfile: apps/web/Dockerfile
+      args:
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:3000/api}
     ports:
-      - "5173:4173"
+      - "127.0.0.1:${WEB_PORT:-5173}:4173"
     depends_on:
       - bff
 
@@ -13,13 +15,14 @@ services:
       context: .
       dockerfile: apps/bff/Dockerfile
     ports:
-      - "3000:3000"
+      - "127.0.0.1:${BFF_PORT:-3000}:3000"
     environment:
       NODE_ENV: production
       BFF_PORT: 3000
       JWT_SECRET: ${JWT_SECRET:-dev-smart-flow-secret}
       DATABASE_URL: ${DATABASE_URL:?Set DATABASE_URL to your Supabase Postgres connection string}
       DATABASE_SSL: ${DATABASE_SSL:-true}
+      DATABASE_POOL_MAX: ${DATABASE_POOL_MAX:-5}
       SECRETS_ENCRYPTION_KEY: ${SECRETS_ENCRYPTION_KEY:-dev-smart-flow-encryption-key}
       EMAIL_PROVIDER: ${EMAIL_PROVIDER:-resend}
       RESEND_API_KEY: ${RESEND_API_KEY:-}
@@ -35,7 +38,27 @@ services:
       WEATHER_API_URL: ${WEATHER_API_URL:-https://api.open-meteo.com/v1/forecast}
       WEATHER_CACHE_TTL_MS: ${WEATHER_CACHE_TTL_MS:-300000}
       AUTOMATION_INTERVAL_MS: ${AUTOMATION_INTERVAL_MS:-30000}
-      CORS_ORIGIN: http://localhost:5173
+      CORS_ORIGIN: ${CORS_ORIGIN:-http://localhost:5173}
+      KAFKA_ENABLED: ${KAFKA_ENABLED:-false}
+      KAFKA_BROKERS: ${KAFKA_BROKERS:-kafka:29092}
+      KAFKA_WEATHER_TOPIC: ${KAFKA_WEATHER_TOPIC:-open-meteo.weather.v1}
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      - web
+      - bff
+    ports:
+      - "${CADDY_HTTP_PORT:-80}:80"
+      - "${CADDY_HTTPS_PORT:-443}:443"
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN:-localhost}
+      CADDY_EMAIL: ${CADDY_EMAIL:-admin@example.com}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
 
   kafka:
     image: confluentinc/confluent-local:7.4.3
@@ -64,7 +87,25 @@ services:
       - kafka
     command: >
       bash -c "
+      kafka-topics --create --topic open-meteo.weather.v1 --partitions 1 --replication-factor 1 --if-not-exists --bootstrap-server kafka:29092 &&
       kafka-topics --create --topic telemetry.sensors.v1 --partitions 1 --replication-factor 1 --if-not-exists --bootstrap-server kafka:29092 &&
       kafka-topics --create --topic telemetry.snapshots.v1 --partitions 1 --replication-factor 1 --if-not-exists --bootstrap-server kafka:29092 &&
       kafka-topics --create --topic telemetry.hubs.v1 --partitions 1 --replication-factor 1 --if-not-exists --bootstrap-server kafka:29092"
     init: true
+
+  kafka-ui:
+    image: provectuslabs/kafka-ui:v0.7.2
+    profiles: ["kafka"]
+    container_name: smart-flow-kafka-ui
+    depends_on:
+      - kafka
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: smart-flow-local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:29092
+    restart: unless-stopped
+
+volumes:
+  caddy_data:
+  caddy_config:

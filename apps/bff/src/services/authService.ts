@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { env } from "../config/env.js";
+import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../domain/passwordPolicy.js";
 import type { AuthSession, User } from "../domain/types.js";
 import type { UserStore } from "../repositories/contracts.js";
 import { EmailService } from "./emailService.js";
@@ -21,6 +22,7 @@ export class AuthService {
   constructor(private readonly users: UserStore, private readonly email: PasswordResetMailer = new EmailService()) {}
 
   async register(input: { name: string; email: string; password: string }): Promise<AuthSession> {
+    assertStrongPassword(input.password);
     const existing = await this.users.findByEmail(input.email);
     if (existing) {
       throw new Error("Пользователь с таким email уже существует");
@@ -81,6 +83,7 @@ export class AuthService {
   }
 
   async resetPassword(input: { email: string; code: string; password: string }): Promise<{ changed: boolean }> {
+    assertStrongPassword(input.password);
     const reset = await this.getValidReset(input.email, input.code);
     const passwordHash = await bcrypt.hash(input.password, 10);
     await this.users.updatePassword(reset.userId, passwordHash);
@@ -136,4 +139,10 @@ function withoutPassword(user: User & { passwordHash?: string }): User {
     hubId: user.hubId,
     createdAt: user.createdAt
   };
+}
+
+function assertStrongPassword(password: string) {
+  if (!isStrongPassword(password)) {
+    throw new Error(PASSWORD_POLICY_MESSAGE);
+  }
 }

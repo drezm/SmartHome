@@ -1,6 +1,7 @@
 import { env } from "../config/env.js";
 import type { Device, DeviceCategory, DeviceType, HomeLocation, OpenMeteoMetric, TelemetryPoint, WeatherSnapshot } from "../domain/types.js";
 import type { HomeStore } from "../repositories/contracts.js";
+import { kafkaWeatherPublisher } from "./kafkaPublisher.js";
 
 const LEGACY_WEATHER_DEVICE_PREFIX = "weather-outdoor-";
 const OPEN_METEO_DEVICE_PREFIX = "open-meteo-";
@@ -106,7 +107,15 @@ export class WeatherService {
 
     try {
       const fresh = await this.fetchWeather(location);
-      await this.persistWeather(userId, await this.listOpenMeteoSensors(userId), fresh);
+      const readings = await this.persistWeather(userId, await this.listOpenMeteoSensors(userId), fresh);
+      await kafkaWeatherPublisher.publishWeather({
+        userId,
+        observedAt: fresh.observedAt,
+        updatedAt: fresh.updatedAt,
+        locationLabel: fresh.locationLabel,
+        snapshot: fresh,
+        readings
+      });
       return fresh;
     } catch {
       return cached;
@@ -194,6 +203,8 @@ export class WeatherService {
         externalEventId: `open-meteo:${userId}:${snapshot.observedAt}:${reading.kind}`
       });
     }
+
+    return readings;
   }
 }
 

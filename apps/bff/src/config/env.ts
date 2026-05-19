@@ -16,6 +16,10 @@ const optionalEnvString = z.preprocess((value) => (value === "" ? undefined : va
 const optionalEnvBoolean = z
   .preprocess((value) => (value === "" ? undefined : value), z.enum(["true", "false"]).optional())
   .transform((value) => (value ? value === "true" : undefined));
+const envBoolean = z
+  .enum(["true", "false"])
+  .default("false")
+  .transform((value) => value === "true");
 
 const envSchema = z.object({
   NODE_ENV: z.string().default("development"),
@@ -28,6 +32,7 @@ const envSchema = z.object({
     .enum(["true", "false"])
     .default("true")
     .transform((value) => value === "true"),
+  DATABASE_POOL_MAX: z.coerce.number().int().positive().default(5),
   SECRETS_ENCRYPTION_KEY: z.string().default("dev-smart-flow-encryption-key"),
   SMTP_HOST: optionalEnvString,
   SMTP_PORT: z.coerce.number().default(587),
@@ -52,7 +57,10 @@ const envSchema = z.object({
   WEATHER_API_URL: z.string().url().default("https://api.open-meteo.com/v1/forecast"),
   WEATHER_CACHE_TTL_MS: z.coerce.number().default(300_000),
   AUTOMATION_INTERVAL_MS: z.coerce.number().default(30_000),
-  CORS_ORIGIN: z.string().default("http://localhost:5173")
+  CORS_ORIGIN: z.string().default("http://localhost:5173"),
+  KAFKA_ENABLED: envBoolean,
+  KAFKA_BROKERS: z.string().default("localhost:9092"),
+  KAFKA_WEATHER_TOPIC: z.string().default("open-meteo.weather.v1")
 });
 
 export const env = envSchema.parse(process.env);
