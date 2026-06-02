@@ -42,7 +42,7 @@ export class HomeSensorService {
         continue;
       }
 
-      const reading = buildReading(sensor, now);
+      const reading = buildHomeSensorReading(sensor, now, latest?.value);
       await this.home.createTelemetry(userId, {
         deviceId: sensor.id,
         kind: reading.kind,
@@ -72,20 +72,21 @@ export function isHomeSensorDevice(device: Pick<Device, "sourceKind" | "sourceMe
   return device.sourceKind === "home_sensor" && isHomeSensorMetric(device.sourceMetric);
 }
 
-function buildReading(sensor: Device, now: Date) {
+export function buildHomeSensorReading(sensor: Device, now: Date, previousValue?: number) {
   const definition = getHomeSensorDefinition(sensor.sourceMetric as HomeSensorMetric);
   const phase = hash(sensor.id) % 17;
   const minute = Math.floor(now.getTime() / 60_000);
-  const wave = Math.sin((minute + phase) / 6);
+  const hour = now.getHours() + now.getMinutes() / 60;
+  const dayWave = Math.sin(((hour - 8) / 24) * Math.PI * 2);
+  const noise = deterministicNoise(`${sensor.id}:${Math.floor(now.getTime() / env.AUTOMATION_INTERVAL_MS)}`);
 
   if (definition.metric === "temperature") {
-    return { kind: definition.kind, value: round(22 + wave * 4), unit: definition.unit };
+    return { kind: definition.kind, value: smoothReading(previousValue, 22 + dayWave * 1.8, noise * 0.12, 18, 27, 0.3), unit: definition.unit };
   }
   if (definition.metric === "humidity") {
-    return { kind: definition.kind, value: round(48 + wave * 12), unit: definition.unit };
+    return { kind: definition.kind, value: smoothReading(previousValue, 48 - dayWave * 5, noise * 0.25, 35, 65, 0.6), unit: definition.unit };
   }
   if (definition.metric === "illuminance") {
-    const hour = now.getHours();
     const daylight = Math.max(0, Math.sin(((hour - 6) / 12) * Math.PI));
     return { kind: definition.kind, value: Math.round(80 + daylight * 720), unit: definition.unit };
   }
@@ -93,7 +94,7 @@ function buildReading(sensor: Device, now: Date) {
     return { kind: definition.kind, value: (minute + phase) % 5 === 0 ? 1 : 0, unit: definition.unit };
   }
   if (definition.metric === "co2") {
-    return { kind: definition.kind, value: Math.round(620 + wave * 180), unit: definition.unit };
+    return { kind: definition.kind, value: Math.round(smoothReading(previousValue, 650 + dayWave * 90, noise * 5, 480, 950, 12)), unit: definition.unit };
   }
 
   return { kind: definition.kind, value: sensor.enabled ? 1 : 0, unit: definition.unit };
@@ -101,6 +102,23 @@ function buildReading(sensor: Device, now: Date) {
 
 function round(value: number) {
   return Math.round(value * 10) / 10;
+}
+
+function smoothReading(previousValue: number | undefined, target: number, noise: number, min: number, max: number, maxStep: number) {
+  if (previousValue === undefined) {
+    return round(clamp(target + noise, min, max));
+  }
+
+  const next = previousValue + (target - previousValue) * 0.04 + noise;
+  return round(clamp(next, Math.max(min, previousValue - maxStep), Math.min(max, previousValue + maxStep)));
+}
+
+function deterministicNoise(value: string) {
+  return (hash(value) / 0xffffffff - 0.5) * 2;
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
 
 function hash(value: string) {

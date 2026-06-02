@@ -1,5 +1,7 @@
 import type {
   ClimateSeriesPayload,
+  ClimateSensorOption,
+  ClimateSensorSelection,
   DateRange,
   DateRangeInput,
   DashboardSummary,
@@ -54,7 +56,7 @@ import {
   telemetryChangedMessage
 } from "./telegramMessages.js";
 import { formatRangeLabel, isInsideDateRange, resolveDateRange } from "../domain/dateRange.js";
-import { normalizeClimateSeries } from "../domain/climateSeries.js";
+import { getClimateBucketMs, normalizeClimateSeries } from "../domain/climateSeries.js";
 import PDFDocument from "pdfkit";
 import fs from "node:fs";
 import { fileURLToPath } from "node:url";
@@ -709,7 +711,12 @@ export class HomeService {
     ]);
     const scopedTelemetry = telemetry;
     const scopedNotifications = notifications.filter((item) => isInsideDateRange(item.createdAt, range));
-    const climate = normalizeClimateSeries(scopedTelemetry);
+    const climateSensors = getClimateSensorOptions(devices);
+    const climate = normalizeClimateSeries(scopedTelemetry, {
+      bucketMs: getClimateBucketMs(range),
+      temperatureDeviceIds: climateSensors.temperature.filter(isHomeClimateSensor).map((sensor) => sensor.id),
+      humidityDeviceIds: climateSensors.humidity.filter(isHomeClimateSensor).map((sensor) => sensor.id)
+    });
     const notificationStats = Object.entries(groupBy(scopedNotifications.map((item) => item.type))).map(([type, count]) => ({ type, count }));
 
     return {
@@ -741,10 +748,10 @@ export class HomeService {
     return this.news.listSmartHomeNews();
   }
 
-  async getClimateSeries(userId: string, rangeInput: DateRangeInput): Promise<ClimateSeriesPayload> {
+  async getClimateSeries(userId: string, rangeInput: DateRangeInput, selection: Partial<ClimateSensorSelection> = {}): Promise<ClimateSeriesPayload> {
     const range = resolveDateRange(rangeInput);
-    const telemetry = await this.home.listTelemetryRange(userId, range);
-    return buildClimateSeries(range, telemetry);
+    const [devices, telemetry] = await Promise.all([this.home.listDevices(userId), this.home.listTelemetryRange(userId, range)]);
+    return buildClimateSeries(range, telemetry, devices, selection);
   }
 
   async getDashboard(userId: string): Promise<DashboardSummary> {
@@ -1256,12 +1263,28 @@ function formatDateTime(value: string) {
   return new Intl.DateTimeFormat("ru-RU", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" }).format(new Date(value));
 }
 
-function buildClimateSeries(range: DateRange, telemetry: Awaited<ReturnType<HomeStore["listTelemetryRange"]>>): ClimateSeriesPayload {
-  const climate = normalizeClimateSeries(telemetry);
+function buildClimateSeries(
+  range: DateRange,
+  telemetry: Awaited<ReturnType<HomeStore["listTelemetryRange"]>>,
+  devices: Device[],
+  selection: Partial<ClimateSensorSelection>
+): ClimateSeriesPayload {
+  const availableSensors = getClimateSensorOptions(devices);
+  const selectedSensors = {
+    temperatureSensorId: selectSensorId(availableSensors.temperature, selection.temperatureSensorId),
+    humiditySensorId: selectSensorId(availableSensors.humidity, selection.humiditySensorId)
+  };
+  const climate = normalizeClimateSeries(telemetry, {
+    bucketMs: getClimateBucketMs(range),
+    temperatureDeviceIds: selectedSensors.temperatureSensorId ? [selectedSensors.temperatureSensorId] : [],
+    humidityDeviceIds: selectedSensors.humiditySensorId ? [selectedSensors.humiditySensorId] : []
+  });
   return {
     range,
     temperatureSeries: climate.temperatureSeries,
-    humiditySeries: climate.humiditySeries
+    humiditySeries: climate.humiditySeries,
+    availableSensors,
+    selectedSensors
   };
 }
 
@@ -1606,13 +1629,64 @@ function buildRoomStats(context: ReportContext, room: string) {
 }
 
 function buildSourceClimate(context: ReportContext, sourceKind: Device["sourceKind"]) {
-  const ids = new Set(context.devices.filter((device) => device.sourceKind === sourceKind).map((device) => device.id));
+  const devices = context.devices.filter((device) => device.sourceKind === sourceKind);
+  const ids = new Set(devices.map((device) => device.id));
   const telemetry = context.scopedTelemetry.filter((item) => ids.has(item.deviceId));
+  const climate = normalizeClimateSeries(telemetry, {
+    bucketMs: getClimateBucketMs(context.range),
+    temperatureDeviceIds: devices.filter(isTemperatureClimateDevice).map((device) => device.id),
+    humidityDeviceIds: devices.filter(isHumidityClimateDevice).map((device) => device.id)
+  });
   return {
-    temperature: average(telemetry.filter((item) => item.kind === "temperature").map((item) => item.value)),
-    humidity: average(telemetry.filter((item) => item.kind === "humidity").map((item) => item.value)),
-    temperatureSeries: telemetry.filter((item) => item.kind === "temperature").map((item) => ({ at: item.createdAt, value: item.value }))
+    temperature: average(climate.temperatureSeries.map((item) => item.value)),
+    humidity: average(climate.humiditySeries.map((item) => item.value)),
+    temperatureSeries: climate.temperatureSeries
   };
+}
+
+function getClimateSensorOptions(devices: Device[]) {
+  return {
+    temperature: devices.filter(isTemperatureClimateDevice).sort(compareClimateSensors).map(toClimateSensorOption),
+    humidity: devices.filter(isHumidityClimateDevice).sort(compareClimateSensors).map(toClimateSensorOption)
+  };
+}
+
+function isTemperatureClimateDevice(device: Device) {
+  return (
+    (device.sourceKind === "home_sensor" && device.sourceMetric === "temperature") ||
+    (device.sourceKind === "open_meteo" && device.sourceMetric === "temperature_2m")
+  );
+}
+
+function isHumidityClimateDevice(device: Device) {
+  return (
+    (device.sourceKind === "home_sensor" && device.sourceMetric === "humidity") ||
+    (device.sourceKind === "open_meteo" && device.sourceMetric === "relative_humidity_2m")
+  );
+}
+
+function compareClimateSensors(left: Device, right: Device) {
+  if (left.sourceKind !== right.sourceKind) {
+    return left.sourceKind === "home_sensor" ? -1 : 1;
+  }
+  return left.name.localeCompare(right.name, "ru");
+}
+
+function toClimateSensorOption(device: Device): ClimateSensorOption {
+  return {
+    id: device.id,
+    name: device.name,
+    room: device.room,
+    sourceKind: device.sourceKind as ClimateSensorOption["sourceKind"]
+  };
+}
+
+function selectSensorId(options: ClimateSensorOption[], requestedId: string | null | undefined) {
+  return (requestedId && options.some((option) => option.id === requestedId) ? requestedId : options[0]?.id) ?? null;
+}
+
+function isHomeClimateSensor(sensor: ClimateSensorOption) {
+  return sensor.sourceKind === "home_sensor";
 }
 
 function buildHourlyActivity(notifications: Awaited<ReturnType<HomeStore["listNotifications"]>>) {

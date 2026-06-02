@@ -18,6 +18,14 @@ describe("UI cleanup plan", () => {
     expect(source).not.toContain('title="Событий"');
   });
 
+  it("validates email fields and masks the reset recipient", () => {
+    const authForm = read("features/auth/AuthForm.tsx");
+    const forgotPassword = read("pages/auth/ForgotPasswordPage.tsx");
+
+    expect(authForm).toContain("isValidEmail");
+    expect(forgotPassword).toContain("maskEmail(email)");
+  });
+
   it("replaces dashboard runtime diagnostics with weather by location", () => {
     const source = read("pages/dashboard/DashboardPage.tsx");
 
@@ -25,6 +33,7 @@ describe("UI cleanup plan", () => {
     expect(source).toContain("Климат дома");
     expect(source).toContain("api.climate");
     expect(source).toContain("humiditySeries");
+    expect(source).toContain("ClimateSensorSelect");
     expect(source).not.toContain("Collector URL");
     expect(source).not.toContain("Scheduler");
     expect(source).not.toContain("Hub Router");

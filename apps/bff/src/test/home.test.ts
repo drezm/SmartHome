@@ -109,6 +109,10 @@ describe("home api", () => {
     const preset = await request(app).get("/api/dashboard/climate?range=24h").set("Authorization", `Bearer ${token}`).expect(200);
     expect(preset.body.range).toMatchObject({ preset: "24h" });
     expect(preset.body.temperatureSeries.length).toBeGreaterThan(0);
+    expect(preset.body.selectedSensors.temperatureSensorId).toBe("kitchen-temp");
+    expect(preset.body.availableSensors.temperature).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: "kitchen-temp", sourceKind: "home_sensor" })])
+    );
 
     const custom = await request(app)
       .get(
@@ -124,6 +128,33 @@ describe("home api", () => {
       to: "2026-01-01T23:59:59.999Z"
     });
     expect(custom.body.temperatureSeries).toHaveLength(0);
+  });
+
+  it("returns climate points only for the selected sensor", async () => {
+    const app = createApp();
+    const token = await login(app);
+
+    const created = await request(app)
+      .post("/api/devices")
+      .set("Authorization", `Bearer ${token}`)
+      .send({
+        name: "Температура в спальне",
+        type: "TEMPERATURE_SENSOR",
+        category: "Датчики",
+        room: "Спальня",
+        enabled: true,
+        sourceKind: "home_sensor",
+        sourceMetric: "temperature"
+      })
+      .expect(201);
+
+    const climate = await request(app)
+      .get(`/api/dashboard/climate?range=24h&temperatureSensorId=${created.body.device.id}`)
+      .set("Authorization", `Bearer ${token}`)
+      .expect(200);
+
+    expect(climate.body.selectedSensors.temperatureSensorId).toBe(created.body.device.id);
+    expect(climate.body.temperatureSeries).toHaveLength(1);
   });
 
   it("protects the system weather device from user edits, deletes and manual telemetry", async () => {

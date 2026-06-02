@@ -26,7 +26,7 @@ describe("AuthForm", () => {
   it("shows password rules and unlocks registration for a strong password", () => {
     const client = new QueryClient();
 
-    render(
+    const view = render(
       <MemoryRouter>
         <QueryClientProvider client={client}>
           <AuthProvider>
@@ -36,11 +36,30 @@ describe("AuthForm", () => {
       </MemoryRouter>
     );
 
-    const submit = screen.getByRole("button", { name: "Создать аккаунт" });
-    expect(screen.getByText(/Минимум 8 символов/)).toBeInTheDocument();
+    const submit = view.getByRole("button", { name: "Создать аккаунт" });
+    expect(view.getByText(/Минимум 8 символов/)).toBeInTheDocument();
     expect(submit).toBeDisabled();
 
-    fireEvent.change(screen.getAllByPlaceholderText("Пароль").at(-1) as HTMLInputElement, { target: { value: "Secret123!" } });
+    fireEvent.change(view.getByPlaceholderText("Email"), { target: { value: "test@example.com" } });
+    fireEvent.change(view.getByPlaceholderText("Пароль"), { target: { value: "Secret123!" } });
     expect(submit).toBeEnabled();
+  });
+
+  it("shows an email validation error", () => {
+    const client = new QueryClient();
+
+    const view = render(
+      <MemoryRouter>
+        <QueryClientProvider client={client}>
+          <AuthProvider>
+            <AuthForm mode="register" />
+          </AuthProvider>
+        </QueryClientProvider>
+      </MemoryRouter>
+    );
+
+    fireEvent.change(view.getByPlaceholderText("Email"), { target: { value: "invalid-address" } });
+    expect(view.getByText("Введите корректный email")).toBeInTheDocument();
+    expect(view.getByRole("button", { name: "Создать аккаунт" })).toBeDisabled();
   });
 });

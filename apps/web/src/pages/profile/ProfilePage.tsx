@@ -55,7 +55,7 @@ export function ProfilePage() {
                 </div>
                 <div className="grid gap-4 md:grid-cols-2">
                   <Input defaultValue={user?.name ?? ""} />
-                  <Input defaultValue={user?.email ?? ""} />
+                  <Input defaultValue={user?.email ?? ""} type="email" autoComplete="email" />
                   <Input defaultValue="+7 (999) 123-45-67" />
                   <Select defaultValue="Europe/Moscow">
                     <option value="Europe/Moscow">Europe/Moscow</option>

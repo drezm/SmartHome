@@ -4,7 +4,7 @@
 
 ## Быстрый запуск
 
-Перед запуском создайте `.env` на основе `.env.example`, укажите Supabase `DATABASE_URL` и примените SQL из `supabase/migrations/20260514_telemetry_pipeline_schema.sql`, затем `supabase/migrations/20260515_scenario_sources_manual_modes.sql` в Supabase SQL Editor.
+Перед запуском создайте `.env` на основе `.env.example`, укажите Supabase `DATABASE_URL` и последовательно примените SQL из `supabase/migrations` в Supabase SQL Editor.
 
 ```bash
 docker compose up --build
@@ -63,11 +63,14 @@ docker compose --profile kafka up -d kafka kafka-init-topics kafka-ui
 2. Выполните SQL из `backups/smart-home-supabase-premium-migration-2026-04-22.sql`, чтобы добавить таблицы подписки, Telegram и восстановления пароля.
 3. Выполните SQL из `supabase/migrations/20260514_telemetry_pipeline_schema.sql`, чтобы добавить `hub_id`, `home_locations`, поля источника телеметрии и корректные FK.
 4. Выполните SQL из `supabase/migrations/20260515_scenario_sources_manual_modes.sql`, чтобы добавить источники устройств, manual modes и `scenario_actions`.
-5. Создайте локальный `.env` на основе `.env.example`.
-6. Вставьте Supabase connection string в `DATABASE_URL`.
-7. Оставьте `DATABASE_SSL=true` для Supabase pooler.
-8. Для session-pooler оставьте `DATABASE_POOL_MAX=5`, чтобы BFF не раздувал число одновременных соединений.
-8. Перезапустите BFF или `docker compose up --build`.
+5. Выполните SQL из `supabase/migrations/20260516_home_sensors.sql` и `supabase/migrations/20260517_schedule_reports.sql`.
+6. Создайте локальный `.env` на основе `.env.example`.
+7. Вставьте Supabase connection string в `DATABASE_URL`.
+8. Оставьте `DATABASE_SSL=true` для Supabase pooler.
+9. Для session-pooler оставьте `DATABASE_POOL_MAX=5`, чтобы BFF не раздувал число одновременных соединений.
+10. Перезапустите BFF или `docker compose up --build`.
+
+После перехода со старой demo-синусоиды домашних датчиков на плавную модель можно один раз выполнить `supabase/maintenance/20260602_reset_home_sensor_demo_telemetry.sql`. Скрипт удаляет только автоматически созданные домашние точки и не затрагивает Open-Meteo или ручную телеметрию.
 
 Если `DATABASE_URL` пустой или схема Supabase не готова, runtime BFF не стартует.
 
@@ -76,6 +79,7 @@ docker compose --profile kafka up -d kafka kafka-init-topics kafka-ui
 - Домашняя локация хранится в `home_locations` и задается через `/api/location/browser`.
 - Dashboard на стороне BFF берет текущую погоду из Open-Meteo по координатам, кэширует ее на `WEATHER_CACHE_TTL_MS` и сохраняет точки в `telemetry_points`.
 - Для погодных данных BFF создает отдельные системные Open-Meteo-датчики: температура, влажность, осадки и ветер; датчик наружной освещенности можно добавить вручную.
+- Климатический график позволяет отдельно выбрать источник температуры и источник влажности; линии разных устройств не смешиваются.
 - Автоматические сценарии читают конкретный `source device + metric`, а избранные ручные режимы запускаются пользователем с дашборда.
 - Frontend не ходит напрямую в Supabase или Open-Meteo.
 

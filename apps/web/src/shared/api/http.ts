@@ -1,5 +1,6 @@
 import type {
   AuthSession,
+  ClimateSensorSelection,
   ClimateSeriesPayload,
   DateRangeInput,
   DashboardSummary,
@@ -26,6 +27,7 @@ import type {
   TelegramIntegration,
   User
 } from "./types";
+import { normalizeEmail } from "@/shared/lib/email";
 
 const API_URL = import.meta.env.VITE_API_URL ?? "http://localhost:3000/api";
 const TOKEN_KEY = "smart-flow-token";
@@ -81,31 +83,32 @@ export const api = {
   register: (input: { name: string; email: string; password: string }) =>
     request<AuthSession>("/auth/register", {
       method: "POST",
-      body: JSON.stringify(input)
+      body: JSON.stringify({ ...input, email: normalizeEmail(input.email) })
     }),
   login: (input: { email: string; password: string }) =>
     request<AuthSession>("/auth/login", {
       method: "POST",
-      body: JSON.stringify(input)
+      body: JSON.stringify({ ...input, email: normalizeEmail(input.email) })
     }),
   me: () => request<{ user: User }>("/auth/me"),
   forgotPassword: (input: { email: string }) =>
     request<{ sent: boolean; devCode?: string }>("/auth/forgot-password", {
       method: "POST",
-      body: JSON.stringify(input)
+      body: JSON.stringify({ email: normalizeEmail(input.email) })
     }),
   resetPassword: (input: { email: string; code: string; password: string }) =>
     request<{ changed: boolean }>("/auth/reset-password", {
       method: "POST",
-      body: JSON.stringify(input)
+      body: JSON.stringify({ ...input, email: normalizeEmail(input.email) })
     }),
   verifyResetCode: (input: { email: string; code: string }) =>
     request<{ valid: boolean }>("/auth/verify-reset-code", {
       method: "POST",
-      body: JSON.stringify(input)
+      body: JSON.stringify({ ...input, email: normalizeEmail(input.email) })
     }),
   dashboard: () => request<DashboardSummary>("/dashboard"),
-  climate: (range: DateRangeInput) => request<ClimateSeriesPayload>(`/dashboard/climate?${buildDateRangeQuery(range)}`),
+  climate: (range: DateRangeInput, sensors: Partial<ClimateSensorSelection> = {}) =>
+    request<ClimateSeriesPayload>(`/dashboard/climate?${buildClimateQuery(range, sensors)}`),
   location: () => request<{ location: HomeLocation | null }>("/location"),
   saveBrowserLocation: (input: {
     latitude: number;
@@ -122,7 +125,7 @@ export const api = {
   checkoutSubscription: (input: { cardholderName: string; cardNumber: string; expires: string; cvc: string; paymentEmail: string }) =>
     request<{ subscription: Subscription }>("/subscription/checkout", {
       method: "POST",
-      body: JSON.stringify(input)
+      body: JSON.stringify({ ...input, paymentEmail: normalizeEmail(input.paymentEmail) })
     }),
   cancelSubscription: () =>
     request<{ subscription: Subscription }>("/subscription/cancel", {
@@ -253,6 +256,17 @@ function buildReportQuery(range: DateRangeInput, parameters: ReportParameters) {
       query.set(key, value);
     }
   });
+  return query.toString();
+}
+
+function buildClimateQuery(range: DateRangeInput, sensors: Partial<ClimateSensorSelection>) {
+  const query = new URLSearchParams(buildDateRangeQuery(range));
+  if (sensors.temperatureSensorId) {
+    query.set("temperatureSensorId", sensors.temperatureSensorId);
+  }
+  if (sensors.humiditySensorId) {
+    query.set("humiditySensorId", sensors.humiditySensorId);
+  }
   return query.toString();
 }
 

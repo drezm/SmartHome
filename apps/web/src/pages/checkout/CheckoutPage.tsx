@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom";
 import { useAuth } from "@/app/providers/AuthProvider";
 import { api } from "@/shared/api/http";
 import { queryKeys } from "@/shared/api/queryKeys";
+import { isValidEmail, normalizeEmail } from "@/shared/lib/email";
 import { Button } from "@/shared/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/Card";
 import { Input } from "@/shared/ui/Input";
@@ -111,7 +112,7 @@ function validateCheckout(input: CheckoutPayload): CheckoutErrors {
     errors.cardholderName = "Введите имя держателя карты буквами, без цифр и спецсимволов.";
   }
 
-  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.paymentEmail.trim())) {
+  if (!isValidEmail(input.paymentEmail)) {
     errors.paymentEmail = "Введите корректный email для чека.";
   }
 
@@ -160,7 +161,7 @@ export function CheckoutPage() {
     event.preventDefault();
     const payload = {
       cardholderName: cardholderName.trim().replace(/\s+/g, " "),
-      paymentEmail: paymentEmail.trim(),
+      paymentEmail: normalizeEmail(paymentEmail),
       cardNumber: digitsOnly(cardNumber),
       expires: normalizeExpiry(expires),
       cvc: digitsOnly(cvc)
@@ -221,6 +222,7 @@ export function CheckoutPage() {
                     setPaymentEmail(event.target.value);
                     clearFieldError("paymentEmail");
                   }}
+                  onBlur={() => setPaymentEmail(normalizeEmail(paymentEmail))}
                   placeholder="Email для чека"
                   type="email"
                   autoComplete="email"

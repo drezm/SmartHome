@@ -15,7 +15,7 @@ describe("auth api", () => {
 
     const registerResponse = await request(app)
       .post("/api/auth/register")
-      .send({ name: "Test User", email: "test@example.com", password: "Secret123!" })
+      .send({ name: "Test User", email: "  Test@Example.COM  ", password: "Secret123!" })
       .expect(201);
 
     expect(registerResponse.body.user.email).toBe("test@example.com");
@@ -66,6 +66,17 @@ describe("auth api", () => {
     expect(response.body.message).toContain("минимум 8 символов");
   });
 
+  it("rejects invalid email addresses", async () => {
+    const app = createApp();
+
+    const response = await request(app)
+      .post("/api/auth/register")
+      .send({ name: "Invalid Email", email: "invalid-address", password: "Secret123!" })
+      .expect(400);
+
+    expect(response.body.message).toContain("Введите корректный email");
+  });
+
   it("creates a password reset token and changes password", async () => {
     const db = resetDatabaseForTests();
     let resetCode = "";
@@ -76,7 +87,7 @@ describe("auth api", () => {
       isConfigured: () => true
     });
 
-    await auth.forgotPassword({ email: "matvey@example.com" });
+    await auth.forgotPassword({ email: "  Matvey@Example.COM  " });
     expect(resetCode).toMatch(/^\d{6}$/);
     await expect(auth.verifyResetCode({ email: "matvey@example.com", code: resetCode })).resolves.toEqual({ valid: true });
     await expect(auth.resetPassword({ email: "matvey@example.com", code: "000000", password: "new-password123" })).rejects.toThrow("Код восстановления");

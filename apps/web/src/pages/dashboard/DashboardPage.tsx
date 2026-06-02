@@ -14,7 +14,8 @@ import { Badge } from "@/shared/ui/Badge";
 import { Button } from "@/shared/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/Card";
 import { Input } from "@/shared/ui/Input";
-import type { DateRangeInput } from "@/shared/api/types";
+import { Select } from "@/shared/ui/Select";
+import type { ClimateSensorOption, ClimateSensorSelection, DateRangeInput } from "@/shared/api/types";
 import { StatCard } from "@/widgets/dashboard/StatCard";
 
 const ClimateChart = lazy(() => import("./DashboardCharts").then((module) => ({ default: module.ClimateChart })));
@@ -24,9 +25,10 @@ export function DashboardPage() {
   const [scenarioOpen, setScenarioOpen] = useState(false);
   const [climateRange, setClimateRange] = useState<DateRangeInput>({ preset: "24h" });
   const [customClimateDates, setCustomClimateDates] = useState({ from: "", to: "" });
+  const [climateSensors, setClimateSensors] = useState<Partial<ClimateSensorSelection>>(readStoredClimateSensors);
   const navigate = useNavigate();
   const dashboard = useQuery({ queryKey: queryKeys.dashboard, queryFn: api.dashboard, ...liveQueryOptions });
-  const climate = useQuery({ queryKey: queryKeys.climate(climateRange), queryFn: () => api.climate(climateRange), ...liveQueryOptions });
+  const climate = useQuery({ queryKey: queryKeys.climate(climateRange, climateSensors), queryFn: () => api.climate(climateRange, climateSensors), ...liveQueryOptions });
   const news = useQuery({ queryKey: queryKeys.news, queryFn: api.news, enabled: Boolean(dashboard.data) });
   const data = dashboard.data;
   const currentTemperature = data?.stats.temperature;
@@ -66,6 +68,20 @@ export function DashboardPage() {
               />
             </div>
           </CardHeader>
+          <div className="grid gap-3 px-6 pb-2 sm:grid-cols-2">
+            <ClimateSensorSelect
+              label="Температура"
+              value={climate.data?.selectedSensors.temperatureSensorId ?? ""}
+              options={climate.data?.availableSensors.temperature ?? []}
+              onChange={(temperatureSensorId) => updateStoredClimateSensors({ ...climateSensors, temperatureSensorId }, setClimateSensors)}
+            />
+            <ClimateSensorSelect
+              label="Влажность"
+              value={climate.data?.selectedSensors.humiditySensorId ?? ""}
+              options={climate.data?.availableSensors.humidity ?? []}
+              onChange={(humiditySensorId) => updateStoredClimateSensors({ ...climateSensors, humiditySensorId }, setClimateSensors)}
+            />
+          </div>
           <CardContent className="h-[320px]">
             <ChartSuspense>
               <ClimateChart range={climate.data?.range ?? null} temperature={climate.data?.temperatureSeries ?? []} humidity={climate.data?.humiditySeries ?? []} />
@@ -167,6 +183,47 @@ export function DashboardPage() {
       <CreateScenarioModal open={scenarioOpen} onClose={() => setScenarioOpen(false)} />
     </motion.div>
   );
+}
+
+function ClimateSensorSelect({
+  label,
+  value,
+  options,
+  onChange
+}: {
+  label: string;
+  value: string;
+  options: ClimateSensorOption[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label className="space-y-1.5 text-sm text-zinc-400">
+      <span>{label}</span>
+      <Select value={value} onChange={(event) => onChange(event.target.value)} disabled={options.length === 0}>
+        {options.length === 0 ? <option value="">Нет подходящих датчиков</option> : null}
+        {options.map((sensor) => (
+          <option key={sensor.id} value={sensor.id}>
+            {sensor.name} · {sensor.room} · {sensor.sourceKind === "home_sensor" ? "Домашний" : "Уличный"}
+          </option>
+        ))}
+      </Select>
+    </label>
+  );
+}
+
+const CLIMATE_SENSORS_STORAGE_KEY = "smart-flow-climate-sensors";
+
+function readStoredClimateSensors(): Partial<ClimateSensorSelection> {
+  try {
+    return JSON.parse(localStorage.getItem(CLIMATE_SENSORS_STORAGE_KEY) ?? "{}") as Partial<ClimateSensorSelection>;
+  } catch {
+    return {};
+  }
+}
+
+function updateStoredClimateSensors(next: Partial<ClimateSensorSelection>, setValue: (value: Partial<ClimateSensorSelection>) => void) {
+  localStorage.setItem(CLIMATE_SENSORS_STORAGE_KEY, JSON.stringify(next));
+  setValue(next);
 }
 
 function ClimateRangeControls({

@@ -6,6 +6,7 @@ import { useAuth } from "@/app/providers/AuthProvider";
 import { api } from "@/shared/api/http";
 import { queryKeys } from "@/shared/api/queryKeys";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE, PASSWORD_REQUIREMENTS } from "@/shared/lib/passwordPolicy";
+import { EMAIL_ERROR_MESSAGE, isValidEmail, normalizeEmail } from "@/shared/lib/email";
 import { Button } from "@/shared/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/Card";
 import { Input } from "@/shared/ui/Input";
@@ -30,7 +31,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   function handleSubmit(event: FormEvent) {
     event.preventDefault();
-    if (mode === "register" && !isStrongPassword(password)) {
+    if (!isValidEmail(email) || (mode === "register" && !isStrongPassword(password))) {
       return;
     }
     mutation.mutate();
@@ -38,6 +39,8 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
 
   const Icon = mode === "login" ? LogIn : UserPlus;
   const passwordValid = mode === "login" || isStrongPassword(password);
+  const emailValid = isValidEmail(email);
+  const emailInvalid = Boolean(email) && !emailValid;
 
   return (
     <form onSubmit={handleSubmit}>
@@ -51,7 +54,20 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
         </CardHeader>
         <CardContent className="space-y-4">
           {mode === "register" ? <Input value={name} onChange={(event) => setName(event.target.value)} placeholder="Имя" required /> : null}
-          <Input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" type="email" required />
+          <div className="space-y-1.5">
+            <Input
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              onBlur={() => setEmail(normalizeEmail(email))}
+              placeholder="Email"
+              type="email"
+              autoComplete="email"
+              aria-invalid={emailInvalid}
+              className={emailInvalid ? "border-red-400/60 focus:border-red-300 focus:ring-red-400/20" : undefined}
+              required
+            />
+            {emailInvalid ? <p className="text-xs text-red-300">{EMAIL_ERROR_MESSAGE}</p> : null}
+          </div>
           <Input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Пароль" required />
           {mode === "register" ? <PasswordChecklist password={password} /> : null}
           {mode === "login" ? (
@@ -62,7 +78,7 @@ export function AuthForm({ mode }: { mode: "login" | "register" }) {
             </div>
           ) : null}
           {mutation.error ? <p className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">{mutation.error.message}</p> : null}
-          <Button type="submit" disabled={mutation.isPending || !passwordValid} className="h-12 w-full">
+          <Button type="submit" disabled={mutation.isPending || !passwordValid || !emailValid} className="h-12 w-full">
             {mode === "login" ? "Войти" : "Создать аккаунт"}
           </Button>
           <div className="text-center text-sm text-zinc-400">

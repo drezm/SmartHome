@@ -154,6 +154,18 @@ export interface TelemetrySeriesPoint {
   value: number;
 }
 
+export interface ClimateSensorOption {
+  id: string;
+  name: string;
+  room: string;
+  sourceKind: Extract<DeviceSourceKind, "home_sensor" | "open_meteo">;
+}
+
+export interface ClimateSensorSelection {
+  temperatureSensorId: string | null;
+  humiditySensorId: string | null;
+}
+
 export interface HomeLocation {
   userId: string;
   hubId: string;
@@ -270,6 +282,11 @@ export interface ClimateSeriesPayload {
   range: DateRange;
   temperatureSeries: TelemetrySeriesPoint[];
   humiditySeries: TelemetrySeriesPoint[];
+  availableSensors: {
+    temperature: ClimateSensorOption[];
+    humidity: ClimateSensorOption[];
+  };
+  selectedSensors: ClimateSensorSelection;
 }
 
 export interface NewsItem {

@@ -2,6 +2,7 @@ import bcrypt from "bcryptjs";
 import crypto from "node:crypto";
 import jwt, { type SignOptions } from "jsonwebtoken";
 import { env } from "../config/env.js";
+import { normalizeEmail } from "../domain/email.js";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE } from "../domain/passwordPolicy.js";
 import type { AuthSession, User } from "../domain/types.js";
 import type { UserStore } from "../repositories/contracts.js";
@@ -23,7 +24,8 @@ export class AuthService {
 
   async register(input: { name: string; email: string; password: string }): Promise<AuthSession> {
     assertStrongPassword(input.password);
-    const existing = await this.users.findByEmail(input.email);
+    const email = normalizeEmail(input.email);
+    const existing = await this.users.findByEmail(email);
     if (existing) {
       throw new Error("Пользователь с таким email уже существует");
     }
@@ -31,7 +33,7 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user = await this.users.create({
       name: input.name,
-      email: input.email,
+      email,
       passwordHash
     });
 
@@ -42,7 +44,7 @@ export class AuthService {
   }
 
   async login(input: { email: string; password: string }): Promise<AuthSession> {
-    const user = await this.users.findByEmail(input.email);
+    const user = await this.users.findByEmail(normalizeEmail(input.email));
     if (!user) {
       throw new Error("Неверный email или пароль");
     }
@@ -117,10 +119,6 @@ export class AuthService {
       expiresIn: env.JWT_EXPIRES_IN as SignOptions["expiresIn"]
     });
   }
-}
-
-function normalizeEmail(email: string) {
-  return email.trim().toLowerCase();
 }
 
 function createResetCode() {

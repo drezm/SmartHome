@@ -4,6 +4,7 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { api } from "@/shared/api/http";
 import { isStrongPassword, PASSWORD_POLICY_MESSAGE, PASSWORD_REQUIREMENTS } from "@/shared/lib/passwordPolicy";
+import { EMAIL_ERROR_MESSAGE, isValidEmail, maskEmail, normalizeEmail } from "@/shared/lib/email";
 import { Button } from "@/shared/ui/Button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/shared/ui/Card";
 import { Input } from "@/shared/ui/Input";
@@ -17,6 +18,8 @@ export function ForgotPasswordPage() {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
+  const emailValid = isValidEmail(email);
+  const emailInvalid = Boolean(email) && !emailValid;
   const forgot = useMutation({
     mutationFn: () => api.forgotPassword({ email }),
     onSuccess: () => setStep("code")
@@ -33,7 +36,9 @@ export function ForgotPasswordPage() {
   function submit(event: FormEvent) {
     event.preventDefault();
     if (step === "email") {
-      forgot.mutate();
+      if (emailValid) {
+        forgot.mutate();
+      }
       return;
     }
     if (step === "code") {
@@ -63,12 +68,27 @@ export function ForgotPasswordPage() {
           <CardContent className="space-y-4">
             {forgot.isSuccess ? (
               <p className="rounded-2xl border border-emerald-400/20 bg-emerald-500/15 p-3 text-sm text-emerald-300">
-                Если аккаунт найден, код отправлен на указанную почту.
+                Если аккаунт найден, код отправлен на {maskEmail(email)}.
                 {forgot.data?.devCode ? <span className="mt-2 block font-mono text-base">Dev-код: {forgot.data.devCode}</span> : null}
               </p>
             ) : null}
 
-            {step === "email" ? <Input value={email} onChange={(event) => setEmail(event.target.value)} placeholder="Email" type="email" required /> : null}
+            {step === "email" ? (
+              <div className="space-y-1.5">
+                <Input
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  onBlur={() => setEmail(normalizeEmail(email))}
+                  placeholder="Email"
+                  type="email"
+                  autoComplete="email"
+                  aria-invalid={emailInvalid}
+                  className={emailInvalid ? "border-red-400/60 focus:border-red-300 focus:ring-red-400/20" : undefined}
+                  required
+                />
+                {emailInvalid ? <p className="text-xs text-red-300">{EMAIL_ERROR_MESSAGE}</p> : null}
+              </div>
+            ) : null}
 
             {step === "code" ? (
               <Input
@@ -95,7 +115,7 @@ export function ForgotPasswordPage() {
             {verify.error ? <p className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">{verify.error.message}</p> : null}
             {reset.error ? <p className="rounded-2xl border border-red-400/20 bg-red-500/10 p-3 text-sm text-red-200">{reset.error.message}</p> : null}
 
-            <Button type="submit" disabled={forgot.isPending || verify.isPending || reset.isPending || (step === "code" && code.length !== 6) || (step === "password" && (password !== confirm || !isStrongPassword(password)))} className="h-12 w-full">
+            <Button type="submit" disabled={forgot.isPending || verify.isPending || reset.isPending || (step === "email" && !emailValid) || (step === "code" && code.length !== 6) || (step === "password" && (password !== confirm || !isStrongPassword(password)))} className="h-12 w-full">
               {step === "email" ? "Получить код" : step === "code" ? "Проверить код" : "Сохранить пароль"}
             </Button>
             <div className="text-center text-sm text-zinc-400">

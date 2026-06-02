@@ -1,7 +1,7 @@
 export const queryKeys = {
   me: ["me"] as const,
   dashboard: ["dashboard"] as const,
-  climate: (range: object) => ["climate", range] as const,
+  climate: (range: object, sensors: object = {}) => ["climate", range, sensors] as const,
   location: ["location"] as const,
   devices: ["devices"] as const,
   scenarios: ["scenarios"] as const,

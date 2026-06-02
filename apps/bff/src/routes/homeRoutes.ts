@@ -18,6 +18,7 @@ import { asyncHandler } from "../middleware/asyncHandler.js";
 import { authMiddleware, type AuthenticatedRequest } from "../middleware/auth.js";
 import type { AuthService } from "../services/authService.js";
 import type { HomeService } from "../services/homeService.js";
+import { emailSchema } from "../domain/email.js";
 
 const deviceTypeSchema = z.enum(["MOTION_SENSOR", "TEMPERATURE_SENSOR", "LIGHT_SENSOR", "CLIMATE_SENSOR", "SWITCH_SENSOR"]) satisfies z.ZodType<DeviceType>;
 const deviceCategorySchema = z.enum(["Освещение", "Климат", "Розетки", "Безопасность", "Датчики", "Другое"]) satisfies z.ZodType<DeviceCategory>;
@@ -201,7 +202,7 @@ const checkoutSchema = z.object({
     .string()
     .transform(digitsOnly)
     .refine((value) => /^\d{3,4}$/.test(value), "Введите корректный CVC"),
-  paymentEmail: z.string().trim().email()
+  paymentEmail: emailSchema
 });
 
 const telegramSchema = z.object({
@@ -241,7 +242,9 @@ const reportQuerySchema = z
 const climateQuerySchema = z
   .object({
     range: climateRangeSchema.default("24h"),
-    ...dateRangeShape
+    ...dateRangeShape,
+    temperatureSensorId: z.string().trim().min(1).optional(),
+    humiditySensorId: z.string().trim().min(1).optional()
   })
   .superRefine(validateDateRangeQuery);
 
@@ -270,7 +273,16 @@ export function homeRoutes(auth: AuthService, home: HomeService) {
     "/dashboard/climate",
     asyncHandler<AuthenticatedRequest>(async (request, response) => {
       const query = climateQuerySchema.parse(request.query);
-      response.json(await home.getClimateSeries(request.user.id, { preset: query.range, from: query.from, to: query.to }));
+      response.json(
+        await home.getClimateSeries(
+          request.user.id,
+          { preset: query.range, from: query.from, to: query.to },
+          {
+            temperatureSensorId: query.temperatureSensorId,
+            humiditySensorId: query.humiditySensorId
+          }
+        )
+      );
     })
   );
 
